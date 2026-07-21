@@ -1,6 +1,8 @@
 import { useState } from 'react'
+import { getRole, getTeam } from '../config'
 import { assertionParts } from '../describe'
-import { toneText } from '../tone'
+import { currentRoleIds } from '../store'
+import { toneChip, toneText } from '../tone'
 import type { GameConfig, PlayerId, ScriptConfig, Session } from '../types'
 import { AssertionText } from './AssertionText'
 import { SeatCircle } from './SeatCircle'
@@ -24,6 +26,8 @@ export function DiagramView({ session, game, script, onTagPlayer }: Props) {
         .filter((a) => a.speaker === focusedId || a.targets.includes(focusedId))
         .sort((a, b) => b.createdAt - a.createdAt)
     : []
+
+  const guessedRoleIds = focusedId ? currentRoleIds(session, focusedId) : []
 
   return (
     <div>
@@ -49,6 +53,31 @@ export function DiagramView({ session, game, script, onTagPlayer }: Props) {
             >
               Edit guess
             </button>
+          </div>
+
+          {/* Current role guesses, so you don't have to open the editor to read them. */}
+          <div className="mt-2">
+            {guessedRoleIds.length > 0 ? (
+              <div className="flex flex-wrap gap-1">
+                {guessedRoleIds.map((id) => {
+                  const role = getRole(script, id)
+                  const tone = role ? getTeam(game, role.team)?.tone : undefined
+                  return (
+                    <span
+                      key={id}
+                      className={[
+                        'rounded border px-1.5 py-0.5 text-[11px] leading-none',
+                        tone ? toneChip[tone] : 'border-line text-muted',
+                      ].join(' ')}
+                    >
+                      {role?.name ?? id}
+                    </span>
+                  )
+                })}
+              </div>
+            ) : (
+              <span className="text-xs text-muted/70">no guess</span>
+            )}
           </div>
 
           {involving.length > 0 ? (
