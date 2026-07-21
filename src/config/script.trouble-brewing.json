@@ -1,0 +1,32 @@
+{
+  "id": "trouble-brewing",
+  "gameId": "botc",
+  "name": "Trouble Brewing",
+  "roles": [
+    { "id": "washerwoman", "name": "Washerwoman", "team": "townsfolk" },
+    { "id": "librarian", "name": "Librarian", "team": "townsfolk" },
+    { "id": "investigator", "name": "Investigator", "team": "townsfolk" },
+    { "id": "chef", "name": "Chef", "team": "townsfolk" },
+    { "id": "empath", "name": "Empath", "team": "townsfolk" },
+    { "id": "fortune-teller", "name": "Fortune Teller", "team": "townsfolk" },
+    { "id": "undertaker", "name": "Undertaker", "team": "townsfolk" },
+    { "id": "monk", "name": "Monk", "team": "townsfolk" },
+    { "id": "ravenkeeper", "name": "Ravenkeeper", "team": "townsfolk" },
+    { "id": "virgin", "name": "Virgin", "team": "townsfolk" },
+    { "id": "slayer", "name": "Slayer", "team": "townsfolk" },
+    { "id": "soldier", "name": "Soldier", "team": "townsfolk" },
+    { "id": "mayor", "name": "Mayor", "team": "townsfolk" },
+
+    { "id": "butler", "name": "Butler", "team": "outsider" },
+    { "id": "drunk", "name": "Drunk", "team": "outsider" },
+    { "id": "recluse", "name": "Recluse", "team": "outsider" },
+    { "id": "saint", "name": "Saint", "team": "outsider" },
+
+    { "id": "poisoner", "name": "Poisoner", "team": "minion" },
+    { "id": "spy", "name": "Spy", "team": "minion" },
+    { "id": "scarlet-woman", "name": "Scarlet Woman", "team": "minion" },
+    { "id": "baron", "name": "Baron", "team": "minion" },
+
+    { "id": "imp", "name": "Imp", "team": "demon" }
+  ]
+}

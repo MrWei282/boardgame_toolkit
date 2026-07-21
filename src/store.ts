@@ -1,0 +1,182 @@
+import { create } from 'zustand'
+import { loadAll, saveAll } from './storage'
+import type { Assertion, Phase, PlayerId, RoleId, RoleTag, Session } from './types'
+import { uid } from './uid'
+
+type NewAssertion = {
+  speaker: PlayerId
+  relation: string
+  targets: PlayerId[]
+  roles?: RoleId[]
+  note?: string
+}
+
+type Store = {
+  hydrated: boolean
+  sessions: Record<string, Session>
+  currentSessionId: string | null
+
+  hydrate: () => Promise<void>
+  createSession: (input: { gameId: string; scriptId: string; names: string[] }) => void
+  closeSession: () => void
+  deleteSession: (id: string) => void
+
+  nextPhase: () => void
+  prevPhase: () => void
+  toggleAlive: (playerId: PlayerId) => void
+
+  addAssertion: (input: NewAssertion) => void
+  deleteAssertion: (id: string) => void
+  setRoleTag: (playerId: PlayerId, roleIds: RoleId[]) => void
+}
+
+export const useStore = create<Store>()((set, get) => {
+  /** Applies a change to the current session and persists the result. */
+  function updateSession(fn: (session: Session) => Session) {
+    const { sessions, currentSessionId } = get()
+    if (!currentSessionId) return
+    const current = sessions[currentSessionId]
+    if (!current) return
+
+    const next = { ...sessions, [currentSessionId]: fn(current) }
+    set({ sessions: next })
+    void saveAll({ version: 1, currentSessionId, sessions: next })
+  }
+
+  return {
+    hydrated: false,
+    sessions: {},
+    currentSessionId: null,
+
+    hydrate: async () => {
+      const data = await loadAll()
+      set({
+        hydrated: true,
+        sessions: data.sessions,
+        currentSessionId: data.currentSessionId,
+      })
+    },
+
+    createSession: ({ gameId, scriptId, names }) => {
+      const session: Session = {
+        id: uid(),
+        createdAt: Date.now(),
+        gameId,
+        scriptId,
+        // BotC opens on the first night, so that is where a session starts.
+        round: 1,
+        phase: 'night',
+        players: names.map((name, i) => ({
+          id: uid(),
+          seat: i,
+          name: name.trim() || `P${i + 1}`,
+          alive: true,
+        })),
+        assertions: [],
+        roleTags: [],
+      }
+      const sessions = { ...get().sessions, [session.id]: session }
+      set({ sessions, currentSessionId: session.id })
+      void saveAll({ version: 1, currentSessionId: session.id, sessions })
+    },
+
+    closeSession: () => {
+      // Keeps the session in storage — closing is leaving the game, not deleting it.
+      const { sessions } = get()
+      set({ currentSessionId: null })
+      void saveAll({ version: 1, currentSessionId: null, sessions })
+    },
+
+    deleteSession: (id) => {
+      const { sessions, currentSessionId } = get()
+      const next = { ...sessions }
+      delete next[id]
+      const nextCurrent = currentSessionId === id ? null : currentSessionId
+      set({ sessions: next, currentSessionId: nextCurrent })
+      void saveAll({ version: 1, currentSessionId: nextCurrent, sessions: next })
+    },
+
+    // Phase order is night 1 -> day 1 -> night 2 -> day 2 ...
+    nextPhase: () =>
+      updateSession((s) =>
+        s.phase === 'night'
+          ? { ...s, phase: 'day' }
+          : { ...s, phase: 'night', round: s.round + 1 },
+      ),
+
+    prevPhase: () =>
+      updateSession((s) => {
+        if (s.phase === 'day') return { ...s, phase: 'night' }
+        if (s.round <= 1) return s
+        return { ...s, phase: 'day', round: s.round - 1 }
+      }),
+
+    toggleAlive: (playerId) =>
+      updateSession((s) => ({
+        ...s,
+        players: s.players.map((p) => (p.id === playerId ? { ...p, alive: !p.alive } : p)),
+      })),
+
+    addAssertion: (input) =>
+      updateSession((s) => {
+        const assertion: Assertion = {
+          id: uid(),
+          round: s.round,
+          phase: s.phase,
+          speaker: input.speaker,
+          relation: input.relation,
+          targets: input.targets,
+          roles: input.roles?.length ? input.roles : undefined,
+          note: input.note?.trim() || undefined,
+          createdAt: Date.now(),
+        }
+        return { ...s, assertions: [...s.assertions, assertion] }
+      }),
+
+    deleteAssertion: (id) =>
+      updateSession((s) => ({
+        ...s,
+        assertions: s.assertions.filter((a) => a.id !== id),
+      })),
+
+    setRoleTag: (playerId, roleIds) =>
+      updateSession((s) => {
+        // Append-only: removing a guess writes a new entry with fewer roles
+        // rather than mutating the old one, which is what gives the timeline
+        // stage its history.
+        const tag: RoleTag = {
+          id: uid(),
+          playerId,
+          roleIds,
+          round: s.round,
+          phase: s.phase,
+          createdAt: Date.now(),
+        }
+        return { ...s, roleTags: [...s.roleTags, tag] }
+      }),
+  }
+})
+
+// --- selectors ---------------------------------------------------------------
+
+export function useSession(): Session | null {
+  return useStore((s) => (s.currentSessionId ? (s.sessions[s.currentSessionId] ?? null) : null))
+}
+
+/** The current guess for a player — the latest entry, which may hold several roles. */
+export function latestRoleTag(session: Session, playerId: PlayerId): RoleTag | undefined {
+  let latest: RoleTag | undefined
+  for (const tag of session.roleTags) {
+    if (tag.playerId !== playerId) continue
+    if (!latest || tag.createdAt >= latest.createdAt) latest = tag
+  }
+  return latest
+}
+
+export function currentRoleIds(session: Session, playerId: PlayerId): RoleId[] {
+  return latestRoleTag(session, playerId)?.roleIds ?? []
+}
+
+export function phaseLabel(round: number, phase: Phase): string {
+  return `${phase === 'day' ? 'Day' : 'Night'} ${round}`
+}

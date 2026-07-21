@@ -1,0 +1,48 @@
+@import 'tailwindcss';
+
+/* Dark by default and only — a bright phone at a dim table is an attention magnet. */
+@theme {
+  --color-bg: #0b0f14;
+  --color-surface: #141b23;
+  --color-raised: #1c2733;
+  --color-line: #243040;
+  --color-ink: #e6edf3;
+  --color-muted: #8b9bb0;
+
+  /* relation tones */
+  --color-good: #3fb950;
+  --color-evil: #f85149;
+  --color-neutral: #d29922;
+  --color-info: #58a6ff;
+}
+
+html {
+  background: var(--color-bg);
+  color-scheme: dark;
+}
+
+body {
+  margin: 0;
+  background: var(--color-bg);
+  color: var(--color-ink);
+  font-family: ui-sans-serif, system-ui, -apple-system, 'Segoe UI', sans-serif;
+  /* portrait, one-handed: never bounce or side-scroll */
+  overscroll-behavior: none;
+  overflow-x: hidden;
+}
+
+/* 16px minimum stops iOS Safari auto-zooming on focus, without disabling
+   pinch-zoom (which would be an accessibility regression). */
+input,
+select,
+textarea,
+button {
+  font-size: 16px;
+}
+
+/* Tapping fast and repeatedly is the core interaction — kill the highlight
+   flash and the 300ms double-tap-to-zoom delay. */
+button {
+  -webkit-tap-highlight-color: transparent;
+  touch-action: manipulation;
+}
