@@ -1,0 +1,61 @@
+{
+  "id": "botc",
+  "name": "Blood on the Clocktower",
+  "minPlayers": 5,
+  "maxPlayers": 15,
+  "phases": ["day", "night"],
+  "teams": [
+    { "id": "townsfolk", "name": "Townsfolk", "tone": "good" },
+    { "id": "outsider", "name": "Outsider", "tone": "good" },
+    { "id": "minion", "name": "Minion", "tone": "evil" },
+    { "id": "demon", "name": "Demon", "tone": "evil" }
+  ],
+  "relations": [
+    {
+      "id": "vouch",
+      "label": "Vouch",
+      "phrase": "vouches for",
+      "targets": "one",
+      "roles": "none",
+      "edge": true,
+      "tone": "good"
+    },
+    {
+      "id": "accuse",
+      "label": "Accuse",
+      "phrase": "accuses",
+      "targets": "one",
+      "roles": "none",
+      "edge": true,
+      "tone": "evil"
+    },
+    {
+      "id": "nominate",
+      "label": "Nominate",
+      "phrase": "nominates",
+      "targets": "one",
+      "roles": "none",
+      "edge": true,
+      "tone": "neutral"
+    },
+    {
+      "id": "vote",
+      "label": "Vote",
+      "phrase": "votes for",
+      "targets": "one",
+      "roles": "none",
+      "edge": true,
+      "tone": "neutral"
+    },
+    {
+      "id": "info",
+      "label": "Info",
+      "phrase": "gives info on",
+      "selfPhrase": "claims",
+      "targets": "many",
+      "roles": "optional",
+      "edge": false,
+      "tone": "info"
+    }
+  ]
+}
