@@ -6,7 +6,7 @@
   "phases": ["day", "night"],
   "teams": [
     { "id": "townsfolk", "name": "Townsfolk", "tone": "good" },
-    { "id": "outsider", "name": "Outsider", "tone": "good" },
+    { "id": "outsider", "name": "Outsider", "tone": "blue" },
     { "id": "minion", "name": "Minion", "tone": "evil" },
     { "id": "demon", "name": "Demon", "tone": "evil" }
   ],

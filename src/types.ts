@@ -72,7 +72,11 @@ export type Session = {
 // Games are config, not code. Two layers: a game defines the shape of play, a
 // script defines the role list and extends a game.
 
-export type Tone = 'good' | 'evil' | 'neutral' | 'info'
+// Tone is a named colour slot (maps to a --color-* variable), not an alignment.
+// Teams and relations each choose one. Townsfolk are 'good' (green) and Outsiders
+// 'blue' so the two good-team groups read apart; later this becomes a per-team
+// colour in config rather than a fixed vocabulary here.
+export type Tone = 'good' | 'evil' | 'neutral' | 'info' | 'blue'
 
 export type RelationConfig = {
   id: RelationId

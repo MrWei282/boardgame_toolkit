@@ -9,11 +9,12 @@
   --color-ink: #e6edf3;
   --color-muted: #8b9bb0;
 
-  /* relation tones */
+  /* tones — named colour slots for relations and teams */
   --color-good: #3fb950;
   --color-evil: #f85149;
   --color-neutral: #d29922;
   --color-info: #58a6ff;
+  --color-blue: #4c9aff;
 }
 
 html {

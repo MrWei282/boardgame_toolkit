@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { getRole, getTeam } from '../config'
 import { assertionParts } from '../describe'
-import { currentRoleIds } from '../store'
+import { currentRoleIds, useStore } from '../store'
 import { toneChip, toneText } from '../tone'
 import type { GameConfig, PlayerId, ScriptConfig, Session } from '../types'
 import { AssertionText } from './AssertionText'
@@ -15,6 +15,8 @@ type Props = {
 }
 
 export function DiagramView({ session, game, script, onTagPlayer }: Props) {
+  const deleteAssertion = useStore((s) => s.deleteAssertion)
+
   // Focus mode is the working view: tap a token to isolate it, tap empty space
   // to clear. A full 15-player arrow graph is unreadable on a phone.
   const [focusedId, setFocusedId] = useState<PlayerId | null>(null)
@@ -82,11 +84,28 @@ export function DiagramView({ session, game, script, onTagPlayer }: Props) {
 
           {involving.length > 0 ? (
             <ul className="mt-2 space-y-1">
-              {involving.map((a) => (
-                <li key={a.id} className="text-sm leading-snug">
-                  <AssertionText parts={assertionParts(a, session, game, script)} />
-                </li>
-              ))}
+              {involving.map((a) => {
+                const parts = assertionParts(a, session, game, script)
+                return (
+                  <li key={a.id} className="flex items-start gap-2 text-sm leading-snug">
+                    <span className="min-w-0 flex-1">
+                      <AssertionText parts={parts} />
+                      {parts.note && (
+                        <span className="mt-0.5 block text-xs text-muted">“{parts.note}”</span>
+                      )}
+                    </span>
+                    {/* Delete a claim that turned out to be a lie, right where you
+                        review it. */}
+                    <button
+                      onClick={() => deleteAssertion(a.id)}
+                      aria-label="Delete this entry"
+                      className="shrink-0 rounded-lg px-2 py-0.5 text-xs text-muted active:bg-raised"
+                    >
+                      ✕
+                    </button>
+                  </li>
+                )
+              })}
             </ul>
           ) : (
             <p className="mt-2 text-xs text-muted">Nothing logged about them yet.</p>

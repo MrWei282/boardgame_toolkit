@@ -25,6 +25,7 @@ const toneVar: Record<Tone, string> = {
   evil: 'var(--color-evil)',
   neutral: 'var(--color-neutral)',
   info: 'var(--color-info)',
+  blue: 'var(--color-blue)',
 }
 
 export function SeatCircle({
