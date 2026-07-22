@@ -27,6 +27,10 @@ export type Assertion = {
   roles?: RoleId[]
   /** The quote or evidence. */
   note?: string
+  /** Struck: kept in the log (reversible) but excluded from every projection. */
+  hidden?: boolean
+  /** Starred: floats to the top of its phase group in the log. */
+  pinned?: boolean
   createdAt: number
 }
 
@@ -69,6 +73,10 @@ export type GameEvent = {
   subjects: PlayerId[]
   setsAlive?: boolean
   note?: string
+  /** Struck: kept in the log (reversible) but excluded from every projection. */
+  hidden?: boolean
+  /** Starred: floats to the top of its phase group in the log. */
+  pinned?: boolean
   createdAt: number
 }
 
@@ -125,6 +133,12 @@ export type RelationConfig = {
    */
   edge: boolean
   tone: Tone
+  /**
+   * If set, this relation is a nomination whose votes are recorded with the named
+   * relation. Votes then roll up under the nomination instead of drawing their own
+   * arrows — nominations/votes exist across games, so this stays config-driven.
+   */
+  collectsVotesAs?: RelationId
 }
 
 export type TeamConfig = {

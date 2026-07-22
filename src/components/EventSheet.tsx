@@ -1,7 +1,7 @@
 import { useEffect, useState, type ReactNode } from 'react'
 import { isAlive } from '../projections'
 import { useStore } from '../store'
-import type { Phase, PlayerId, Session } from '../types'
+import type { GameEvent, Phase, PlayerId, Session } from '../types'
 import { SeatGrid } from './SeatGrid'
 import { Sheet } from './Sheet'
 
@@ -13,6 +13,8 @@ type Props = {
   presetSubject?: PlayerId | null
   /** Phase to record into — the phase currently being viewed. */
   at: { round: number; phase: Phase }
+  /** When set, the sheet edits this event in place instead of creating one. */
+  editing?: GameEvent | null
 }
 
 type LifeEffect = 'none' | 'died' | 'revived'
@@ -25,30 +27,41 @@ const toSetsAlive: Record<LifeEffect, boolean | undefined> = {
   revived: true,
 }
 
-export function EventSheet({ open, onClose, session, presetSubject, at }: Props) {
+function effectOf(setsAlive: boolean | undefined): LifeEffect {
+  return setsAlive === false ? 'died' : setsAlive === true ? 'revived' : 'none'
+}
+
+export function EventSheet({ open, onClose, session, presetSubject, at, editing }: Props) {
   const addEvent = useStore((s) => s.addEvent)
+  const updateEvent = useStore((s) => s.updateEvent)
 
   const [label, setLabel] = useState('')
   const [subjects, setSubjects] = useState<PlayerId[]>([])
   const [effect, setEffect] = useState<LifeEffect>('none')
   const [note, setNote] = useState('')
 
-  // Seed from the tapped player: pre-select them and default to the effect that
-  // flips their current state, so "mark dead" / "bring back" is one confirm away.
+  // Seed from the edited event, or from a tapped player (defaulting to the effect
+  // that flips their state), or blank for a fresh event.
   useEffect(() => {
     if (!open) return
-    if (presetSubject) {
+    if (editing) {
+      setLabel(editing.label)
+      setSubjects(editing.subjects)
+      setEffect(effectOf(editing.setsAlive))
+      setNote(editing.note ?? '')
+    } else if (presetSubject) {
       setSubjects([presetSubject])
       setEffect(isAlive(session, presetSubject) ? 'died' : 'revived')
+      setLabel('')
+      setNote('')
     } else {
       setSubjects([])
       setEffect('none')
+      setLabel('')
+      setNote('')
     }
-    setLabel('')
-    setNote('')
-    // Only re-seed when the sheet opens or the preset changes.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [open, presetSubject])
+  }, [open, presetSubject, editing])
 
   const deadIds = new Set(session.players.filter((p) => !isAlive(session, p.id)).map((p) => p.id))
 
@@ -57,7 +70,16 @@ export function EventSheet({ open, onClose, session, presetSubject, at }: Props)
   }
 
   function save() {
-    addEvent({ label, subjects, setsAlive: toSetsAlive[effect], note }, at)
+    if (editing) {
+      updateEvent(editing.id, {
+        label: label.trim(),
+        subjects,
+        setsAlive: toSetsAlive[effect],
+        note: note.trim() || undefined,
+      })
+    } else {
+      addEvent({ label, subjects, setsAlive: toSetsAlive[effect], note }, at)
+    }
     onClose()
   }
 
@@ -65,7 +87,7 @@ export function EventSheet({ open, onClose, session, presetSubject, at }: Props)
     <Sheet
       open={open}
       onClose={onClose}
-      title="Log what happened"
+      title={editing ? 'Edit event' : 'Log what happened'}
       footer={
         <button
           onClick={save}

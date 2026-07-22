@@ -30,6 +30,7 @@ export function isAlive(session: Session, playerId: PlayerId): boolean {
   let latest: GameEvent | undefined
   let latestRank = -1
   for (const e of session.events) {
+    if (e.hidden) continue // struck entries count in no projection
     if (e.setsAlive === undefined) continue
     if (!e.subjects.includes(playerId)) continue
     const r = rankOf(e.round, e.phase)

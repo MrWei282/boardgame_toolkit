@@ -36,10 +36,18 @@ type Store = {
   prevPhase: () => void
 
   addAssertion: (input: NewAssertion, at?: PhaseRef) => void
+  updateAssertion: (id: string, patch: Partial<Assertion>) => void
   deleteAssertion: (id: string) => void
   setRoleTag: (playerId: PlayerId, roleIds: RoleId[], at?: PhaseRef) => void
 
+  /** Log a nomination plus a vote per voter, in one entry. */
+  addNomination: (
+    input: { nominator: PlayerId; nominee: PlayerId; relation: string; voteRelation: string; voters: PlayerId[]; note?: string },
+    at?: PhaseRef,
+  ) => void
+
   addEvent: (input: NewEvent, at?: PhaseRef) => void
+  updateEvent: (id: string, patch: Partial<GameEvent>) => void
   deleteEvent: (id: string) => void
 }
 
@@ -140,11 +148,46 @@ export const useStore = create<Store>()((set, get) => {
         return { ...s, assertions: [...s.assertions, assertion] }
       }),
 
+    updateAssertion: (id, patch) =>
+      updateSession((s) => ({
+        ...s,
+        assertions: s.assertions.map((a) => (a.id === id ? { ...a, ...patch } : a)),
+      })),
+
     deleteAssertion: (id) =>
       updateSession((s) => ({
         ...s,
         assertions: s.assertions.filter((a) => a.id !== id),
       })),
+
+    addNomination: (input, at) =>
+      updateSession((s) => {
+        const round = at?.round ?? s.round
+        const phase = at?.phase ?? s.phase
+        const base = Date.now()
+        const nomination: Assertion = {
+          id: uid(),
+          round,
+          phase,
+          speaker: input.nominator,
+          relation: input.relation,
+          targets: [input.nominee],
+          note: input.note?.trim() || undefined,
+          createdAt: base,
+        }
+        // One vote assertion per voter, all targeting the nominee. They render
+        // rolled up under the nomination rather than as their own arrows.
+        const votes: Assertion[] = input.voters.map((voter, i) => ({
+          id: uid(),
+          round,
+          phase,
+          speaker: voter,
+          relation: input.voteRelation,
+          targets: [input.nominee],
+          createdAt: base + 1 + i,
+        }))
+        return { ...s, assertions: [...s.assertions, nomination, ...votes] }
+      }),
 
     setRoleTag: (playerId, roleIds, at) =>
       updateSession((s) => {
@@ -176,6 +219,12 @@ export const useStore = create<Store>()((set, get) => {
         }
         return { ...s, events: [...s.events, event] }
       }),
+
+    updateEvent: (id, patch) =>
+      updateSession((s) => ({
+        ...s,
+        events: s.events.map((e) => (e.id === id ? { ...e, ...patch } : e)),
+      })),
 
     // Deleting a death event just removes it from the log; aliveness is derived,
     // so the affected player is alive again on the next render with no extra work.

@@ -155,9 +155,10 @@ Ship one stage at a time; do not build a large prototype in one go.
    `GameEvent` log (deaths and anything else). Alive/dead is *derived* from events
    (`setsAlive` per event, latest wins), never stored — see `projections.ts`.
    Alive/dead history was pulled forward to here rather than stage 3.
-3. **Diagram & log polish (3.5)** — nomination/vote roll-up (votes stop drawing
-   their own arrows; they group under the nomination, shown on tap), edit an entry,
-   strikethrough (soft-hide, reversible; excluded from *all* projections), pin/star.
+3. **Done (3.5)** — nomination/vote roll-up (votes stop drawing their own arrows;
+   they group under the nomination, shown on tap), edit an entry, strikethrough
+   (`hidden` on assertions/events, reversible, excluded from *all* projections),
+   pin/star (floats to top of its phase group). Entry actions live behind a ⋯ menu.
 4. Subjective reads layer (`myRead` as node attribute) — the suspicion primitive.
    Expected to need a refactor.
 5. History and review: end-of-game truth entry, post-mortem comparing reads to

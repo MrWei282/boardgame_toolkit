@@ -2,7 +2,7 @@ import { useState, type ReactNode } from 'react'
 import { getGame, getScript } from '../config'
 import { aliveCount, phaseFromRank, projectSession, rankOf } from '../projections'
 import { useStore } from '../store'
-import type { PlayerId, Session } from '../types'
+import type { Assertion, GameEvent, PlayerId, Session } from '../types'
 import { AssertionSheet } from './AssertionSheet'
 import { DiagramView } from './DiagramView'
 import { EventSheet } from './EventSheet'
@@ -22,9 +22,9 @@ export function GameScreen({ session }: { session: Session }) {
   const prevPhase = useStore((s) => s.prevPhase)
 
   const [tab, setTab] = useState<Tab>('diagram')
-  const [logging, setLogging] = useState(false)
-  const [eventOpen, setEventOpen] = useState(false)
-  const [eventPreset, setEventPreset] = useState<PlayerId | null>(null)
+  // null = closed. Otherwise the sheet is open, editing an entry or creating one.
+  const [said, setSaid] = useState<{ editing: Assertion | null } | null>(null)
+  const [happened, setHappened] = useState<{ editing: GameEvent | null; preset: PlayerId | null } | null>(null)
   const [taggingPlayer, setTaggingPlayer] = useState<PlayerId | null>(null)
 
   // Timeline viewpoint. null = live (follow the game); a rank = reviewing the past.
@@ -47,8 +47,7 @@ export function GameScreen({ session }: { session: Session }) {
   const canRetract = currentRank > 2 && !hasEntriesAtCurrent
 
   function openEventFor(id: PlayerId | null) {
-    setEventPreset(id)
-    setEventOpen(true)
+    setHappened({ editing: null, preset: id })
   }
 
   return (
@@ -104,7 +103,14 @@ export function GameScreen({ session }: { session: Session }) {
             />
           )}
           {tab === 'log' && (
-            <LogView session={view} game={game} script={script} highlightRank={viewRank} />
+            <LogView
+              session={view}
+              game={game}
+              script={script}
+              highlightRank={viewRank}
+              onEditAssertion={(a) => setSaid({ editing: a })}
+              onEditEvent={(e) => setHappened({ editing: e, preset: null })}
+            />
           )}
         </main>
       </div>
@@ -112,7 +118,7 @@ export function GameScreen({ session }: { session: Session }) {
       <div className="fixed inset-x-0 bottom-0 z-30 border-t border-line bg-bg/95 px-3 py-3 pb-[max(0.75rem,env(safe-area-inset-bottom))] backdrop-blur">
         <div className="mx-auto flex max-w-md gap-2">
           <button
-            onClick={() => setLogging(true)}
+            onClick={() => setSaid({ editing: null })}
             className="flex-1 rounded-xl bg-info py-3.5 font-semibold text-bg active:opacity-80"
           >
             + What was said
@@ -127,20 +133,22 @@ export function GameScreen({ session }: { session: Session }) {
       </div>
 
       <AssertionSheet
-        open={logging}
-        onClose={() => setLogging(false)}
+        open={said !== null}
+        onClose={() => setSaid(null)}
         session={view}
         game={game}
         script={script}
         at={viewPhase}
+        editing={said?.editing ?? null}
       />
 
       <EventSheet
-        open={eventOpen}
-        onClose={() => setEventOpen(false)}
+        open={happened !== null}
+        onClose={() => setHappened(null)}
         session={view}
-        presetSubject={eventPreset}
+        presetSubject={happened?.preset ?? null}
         at={viewPhase}
+        editing={happened?.editing ?? null}
       />
 
       <RoleTagSheet
