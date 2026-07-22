@@ -7,8 +7,12 @@ type Props = {
 }
 
 /**
- * Seat chips. Dead players stay selectable — they are still spoken about, and
- * "P4 accused P7 before P7 died" is exactly the kind of thing worth logging.
+ * Seat chips. Dead players stay fully selectable — they are still spoken about
+ * and can still speak (in BotC the dead keep talking), so "P1 vouches for the
+ * dead P2" is a valid thing to log. Death is shown with a marker and a struck
+ * name rather than by dimming the whole chip: a blanket opacity made dead chips
+ * look disabled and, worse, washed out the selected highlight so a tap looked
+ * like it did nothing.
  */
 export function SeatGrid({ players, selected, onSelect }: Props) {
   return (
@@ -19,19 +23,26 @@ export function SeatGrid({ players, selected, onSelect }: Props) {
           <button
             key={p.id}
             onClick={() => onSelect(p.id)}
+            aria-pressed={isSelected}
             className={[
               'flex min-h-12 flex-col items-center justify-center rounded-xl border px-2 py-2 leading-tight',
               isSelected
-                ? 'border-info bg-info/20 text-ink'
+                ? 'border-info bg-info/25 text-ink'
                 : 'border-line bg-raised text-ink active:bg-line',
-              p.alive ? '' : 'opacity-45',
             ].join(' ')}
           >
             <span className="text-[10px] text-muted">
               {p.seat + 1}
-              {p.alive ? '' : ' · dead'}
+              {p.alive ? '' : ' · †dead'}
             </span>
-            <span className="max-w-full truncate text-sm">{p.name}</span>
+            <span
+              className={[
+                'max-w-full truncate text-sm',
+                p.alive ? '' : 'text-muted line-through decoration-muted/70',
+              ].join(' ')}
+            >
+              {p.name}
+            </span>
           </button>
         )
       })}

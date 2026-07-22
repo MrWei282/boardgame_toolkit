@@ -1,7 +1,7 @@
-import { getRelation, getRole } from '../config'
+import { assertionParts } from '../describe'
 import { phaseLabel, useStore } from '../store'
-import { toneText } from '../tone'
-import type { Assertion, GameConfig, ScriptConfig, Session } from '../types'
+import type { GameConfig, ScriptConfig, Session } from '../types'
+import { AssertionText } from './AssertionText'
 
 type Props = {
   session: Session
@@ -30,6 +30,7 @@ export function LogView({ session, game, script }: Props) {
         const prev = ordered[i - 1]
         const startsPhase =
           !prev || prev.round !== assertion.round || prev.phase !== assertion.phase
+        const parts = assertionParts(assertion, session, game, script)
 
         return (
           <li key={assertion.id}>
@@ -40,9 +41,9 @@ export function LogView({ session, game, script }: Props) {
             )}
             <div className="flex items-start gap-2 rounded-xl border border-line bg-surface px-3 py-2.5">
               <p className="min-w-0 flex-1 text-sm leading-snug">
-                {describe(assertion, session, game, script)}
-                {assertion.note && (
-                  <span className="mt-0.5 block text-xs text-muted">“{assertion.note}”</span>
+                <AssertionText parts={parts} />
+                {parts.note && (
+                  <span className="mt-0.5 block text-xs text-muted">“{parts.note}”</span>
                 )}
               </p>
               <button
@@ -57,32 +58,5 @@ export function LogView({ session, game, script }: Props) {
         )
       })}
     </ul>
-  )
-}
-
-function describe(
-  assertion: Assertion,
-  session: Session,
-  game: GameConfig,
-  script: ScriptConfig,
-) {
-  const relation = getRelation(game, assertion.relation)
-  const nameOf = (id: string) => session.players.find((p) => p.id === id)?.name ?? '?'
-
-  const isSelfOnly = assertion.targets.length === 1 && assertion.targets[0] === assertion.speaker
-  const phrase = isSelfOnly && relation.selfPhrase ? relation.selfPhrase : relation.phrase
-  const targets = isSelfOnly && relation.selfPhrase ? '' : assertion.targets.map(nameOf).join(' & ')
-
-  const roleNames = (assertion.roles ?? [])
-    .map((id) => getRole(script, id)?.name ?? id)
-    .join(' / ')
-
-  return (
-    <>
-      <span className="font-medium">{nameOf(assertion.speaker)}</span>{' '}
-      <span className={toneText[relation.tone]}>{phrase}</span>
-      {targets && <> {targets}</>}
-      {roleNames && <span className="text-muted"> — {roleNames}</span>}
-    </>
   )
 }

@@ -2,18 +2,19 @@ import { useState, type ReactNode } from 'react'
 import { getGame, getScript } from '../config'
 import type { PlayerId, Session } from '../types'
 import { AssertionSheet } from './AssertionSheet'
+import { DiagramView } from './DiagramView'
 import { LogView } from './LogView'
 import { PlayerList } from './PlayerList'
 import { RoleTagSheet } from './RoleTagSheet'
 import { RoundBar } from './RoundBar'
 
-type Tab = 'players' | 'log'
+type Tab = 'diagram' | 'players' | 'log'
 
 export function GameScreen({ session }: { session: Session }) {
   const game = getGame(session.gameId)
   const script = getScript(session.scriptId)
 
-  const [tab, setTab] = useState<Tab>('players')
+  const [tab, setTab] = useState<Tab>('diagram')
   const [logging, setLogging] = useState(false)
   const [taggingPlayer, setTaggingPlayer] = useState<PlayerId | null>(null)
 
@@ -22,7 +23,10 @@ export function GameScreen({ session }: { session: Session }) {
       <RoundBar session={session} />
 
       <div className="mx-auto max-w-md px-3">
-        <div className="mt-3 grid grid-cols-2 gap-1 rounded-xl border border-line bg-surface p-1">
+        <div className="mt-3 grid grid-cols-3 gap-1 rounded-xl border border-line bg-surface p-1">
+          <TabButton active={tab === 'diagram'} onClick={() => setTab('diagram')}>
+            Diagram
+          </TabButton>
           <TabButton active={tab === 'players'} onClick={() => setTab('players')}>
             Players
           </TabButton>
@@ -33,16 +37,23 @@ export function GameScreen({ session }: { session: Session }) {
 
         {/* Bottom padding clears the sticky log button. */}
         <main className="mt-3 pb-32">
-          {tab === 'players' ? (
+          {tab === 'diagram' && (
+            <DiagramView
+              session={session}
+              game={game}
+              script={script}
+              onTagPlayer={setTaggingPlayer}
+            />
+          )}
+          {tab === 'players' && (
             <PlayerList
               session={session}
               game={game}
               script={script}
               onTagPlayer={setTaggingPlayer}
             />
-          ) : (
-            <LogView session={session} game={game} script={script} />
           )}
+          {tab === 'log' && <LogView session={session} game={game} script={script} />}
         </main>
       </div>
 
