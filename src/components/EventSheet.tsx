@@ -1,7 +1,7 @@
 import { useEffect, useState, type ReactNode } from 'react'
 import { isAlive } from '../projections'
 import { useStore } from '../store'
-import type { PlayerId, Session } from '../types'
+import type { Phase, PlayerId, Session } from '../types'
 import { SeatGrid } from './SeatGrid'
 import { Sheet } from './Sheet'
 
@@ -11,6 +11,8 @@ type Props = {
   session: Session
   /** Optional player to pre-select as the subject (from the Players tab). */
   presetSubject?: PlayerId | null
+  /** Phase to record into — the phase currently being viewed. */
+  at: { round: number; phase: Phase }
 }
 
 type LifeEffect = 'none' | 'died' | 'revived'
@@ -23,7 +25,7 @@ const toSetsAlive: Record<LifeEffect, boolean | undefined> = {
   revived: true,
 }
 
-export function EventSheet({ open, onClose, session, presetSubject }: Props) {
+export function EventSheet({ open, onClose, session, presetSubject, at }: Props) {
   const addEvent = useStore((s) => s.addEvent)
 
   const [label, setLabel] = useState('')
@@ -55,7 +57,7 @@ export function EventSheet({ open, onClose, session, presetSubject }: Props) {
   }
 
   function save() {
-    addEvent({ label, subjects, setsAlive: toSetsAlive[effect], note })
+    addEvent({ label, subjects, setsAlive: toSetsAlive[effect], note }, at)
     onClose()
   }
 

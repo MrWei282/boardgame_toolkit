@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 import { currentRoleIds, useStore } from '../store'
-import type { GameConfig, PlayerId, RoleId, ScriptConfig, Session } from '../types'
+import type { GameConfig, Phase, PlayerId, RoleId, ScriptConfig, Session } from '../types'
 import { RolePicker } from './RolePicker'
 import { Sheet } from './Sheet'
 
@@ -10,13 +10,15 @@ type Props = {
   session: Session
   game: GameConfig
   script: ScriptConfig
+  /** Phase to record into — the phase currently being viewed. */
+  at: { round: number; phase: Phase }
 }
 
 /**
  * My guess at what a player is. Several roles can be selected at once — they are
  * simultaneous hypotheses with equal weight, not a ranked list.
  */
-export function RoleTagSheet({ playerId, onClose, session, game, script }: Props) {
+export function RoleTagSheet({ playerId, onClose, session, game, script, at }: Props) {
   const setRoleTag = useStore((s) => s.setRoleTag)
   const player = session.players.find((p) => p.id === playerId) ?? null
 
@@ -30,7 +32,7 @@ export function RoleTagSheet({ playerId, onClose, session, game, script }: Props
 
   function save() {
     if (!playerId) return
-    setRoleTag(playerId, selected)
+    setRoleTag(playerId, selected, at)
     onClose()
   }
 

@@ -2,7 +2,7 @@ import { useState, type ReactNode } from 'react'
 import { isAlive } from '../projections'
 import { useStore } from '../store'
 import { toneSolid } from '../tone'
-import type { GameConfig, PlayerId, RoleId, ScriptConfig, Session } from '../types'
+import type { GameConfig, Phase, PlayerId, RoleId, ScriptConfig, Session } from '../types'
 import { RolePicker } from './RolePicker'
 import { SeatGrid } from './SeatGrid'
 import { Sheet } from './Sheet'
@@ -13,9 +13,11 @@ type Props = {
   session: Session
   game: GameConfig
   script: ScriptConfig
+  /** Phase to record into — the phase currently being viewed. */
+  at: { round: number; phase: Phase }
 }
 
-export function AssertionSheet({ open, onClose, session, game, script }: Props) {
+export function AssertionSheet({ open, onClose, session, game, script, at }: Props) {
   const addAssertion = useStore((s) => s.addAssertion)
 
   const [speaker, setSpeaker] = useState<PlayerId | null>(null)
@@ -65,7 +67,7 @@ export function AssertionSheet({ open, onClose, session, game, script }: Props) 
 
   function save() {
     if (!speaker || !relation) return
-    addAssertion({ speaker, relation: relation.id, targets, roles, note })
+    addAssertion({ speaker, relation: relation.id, targets, roles, note }, at)
     close()
   }
 

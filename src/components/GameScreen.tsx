@@ -1,6 +1,7 @@
 import { useState, type ReactNode } from 'react'
 import { getGame, getScript } from '../config'
-import { projectSession, rankOf } from '../projections'
+import { aliveCount, phaseFromRank, projectSession, rankOf } from '../projections'
+import { useStore } from '../store'
 import type { PlayerId, Session } from '../types'
 import { AssertionSheet } from './AssertionSheet'
 import { DiagramView } from './DiagramView'
@@ -17,6 +18,9 @@ export function GameScreen({ session }: { session: Session }) {
   const game = getGame(session.gameId)
   const script = getScript(session.scriptId)
 
+  const nextPhase = useStore((s) => s.nextPhase)
+  const prevPhase = useStore((s) => s.prevPhase)
+
   const [tab, setTab] = useState<Tab>('diagram')
   const [logging, setLogging] = useState(false)
   const [eventOpen, setEventOpen] = useState(false)
@@ -29,9 +33,18 @@ export function GameScreen({ session }: { session: Session }) {
   const viewRank = pinnedRank !== null && pinnedRank < currentRank ? pinnedRank : currentRank
   const isLive = viewRank >= currentRank
 
-  // Rendering tabs see the session as of the viewpoint; entry sheets always act
-  // on the live session (new entries are stamped at the current phase).
+  // Rendering tabs and entry sheets both see the session as of the viewpoint, and
+  // new entries are stamped into that phase — so you can log into a past night.
   const view = isLive ? session : projectSession(session, viewRank)
+  const viewPhase = phaseFromRank(viewRank)
+
+  // The live phase can be undone only while it holds nothing — that reverses an
+  // accidental advance without ever removing a phase that has content.
+  const hasEntriesAtCurrent =
+    session.assertions.some((a) => rankOf(a.round, a.phase) === currentRank) ||
+    session.events.some((e) => rankOf(e.round, e.phase) === currentRank) ||
+    session.roleTags.some((t) => rankOf(t.round, t.phase) === currentRank)
+  const canRetract = currentRank > 2 && !hasEntriesAtCurrent
 
   function openEventFor(id: PlayerId | null) {
     setEventPreset(id)
@@ -40,7 +53,13 @@ export function GameScreen({ session }: { session: Session }) {
 
   return (
     <div className="min-h-dvh">
-      <RoundBar session={session} />
+      <RoundBar
+        round={viewPhase.round}
+        phase={viewPhase.phase}
+        alive={aliveCount(view)}
+        total={session.players.length}
+        reviewing={!isLive}
+      />
 
       <div className="mx-auto max-w-md px-3">
         <div className="mt-3 grid grid-cols-3 gap-1 rounded-xl border border-line bg-surface p-1">
@@ -55,7 +74,20 @@ export function GameScreen({ session }: { session: Session }) {
           </TabButton>
         </div>
 
-        <Timeline currentRank={currentRank} viewRank={viewRank} onSelect={(r) => setPinnedRank(r)} />
+        <Timeline
+          currentRank={currentRank}
+          viewRank={viewRank}
+          onSelect={(r) => setPinnedRank(r >= currentRank ? null : r)}
+          onAdvance={() => {
+            nextPhase()
+            setPinnedRank(null)
+          }}
+          onRetract={() => {
+            prevPhase()
+            setPinnedRank(null)
+          }}
+          canRetract={canRetract}
+        />
 
         {/* Bottom padding clears the sticky log buttons. */}
         <main className="mt-3 pb-32">
@@ -78,54 +110,46 @@ export function GameScreen({ session }: { session: Session }) {
       </div>
 
       <div className="fixed inset-x-0 bottom-0 z-30 border-t border-line bg-bg/95 px-3 py-3 pb-[max(0.75rem,env(safe-area-inset-bottom))] backdrop-blur">
-        <div className="mx-auto max-w-md">
-          {isLive ? (
-            <div className="flex gap-2">
-              <button
-                onClick={() => setLogging(true)}
-                className="flex-1 rounded-xl bg-info py-3.5 font-semibold text-bg active:opacity-80"
-              >
-                + What was said
-              </button>
-              <button
-                onClick={() => openEventFor(null)}
-                className="flex-1 rounded-xl border border-line bg-raised py-3.5 font-semibold text-ink active:bg-line"
-              >
-                + What happened
-              </button>
-            </div>
-          ) : (
-            <button
-              onClick={() => setPinnedRank(currentRank)}
-              className="w-full rounded-xl border border-info/40 bg-info/10 py-3.5 font-medium text-info active:bg-info/20"
-            >
-              Return to live to log
-            </button>
-          )}
+        <div className="mx-auto flex max-w-md gap-2">
+          <button
+            onClick={() => setLogging(true)}
+            className="flex-1 rounded-xl bg-info py-3.5 font-semibold text-bg active:opacity-80"
+          >
+            + What was said
+          </button>
+          <button
+            onClick={() => openEventFor(null)}
+            className="flex-1 rounded-xl border border-line bg-raised py-3.5 font-semibold text-ink active:bg-line"
+          >
+            + What happened
+          </button>
         </div>
       </div>
 
       <AssertionSheet
         open={logging}
         onClose={() => setLogging(false)}
-        session={session}
+        session={view}
         game={game}
         script={script}
+        at={viewPhase}
       />
 
       <EventSheet
         open={eventOpen}
         onClose={() => setEventOpen(false)}
-        session={session}
+        session={view}
         presetSubject={eventPreset}
+        at={viewPhase}
       />
 
       <RoleTagSheet
         playerId={taggingPlayer}
         onClose={() => setTaggingPlayer(null)}
-        session={session}
+        session={view}
         game={game}
         script={script}
+        at={viewPhase}
       />
     </div>
   )

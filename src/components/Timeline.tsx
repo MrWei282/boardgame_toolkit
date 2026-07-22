@@ -6,14 +6,21 @@ type Props = {
   /** Rank currently being viewed. */
   viewRank: number
   onSelect: (rank: number) => void
+  /** Advance the game to the next phase. */
+  onAdvance: () => void
+  /** Step the live phase back — only offered when it is empty (see canRetract). */
+  onRetract: () => void
+  /** True when the latest phase has nothing logged, so undoing it loses nothing. */
+  canRetract: boolean
 }
 
 /**
- * A pill per phase from Night 1 up to now. Tapping one reviews the diagram/log as
- * of that phase; the last pill is live. Discrete pills beat a slider on a phone —
- * easier to hit, and phases are naturally discrete.
+ * The single time control. A pill per phase from Night 1 up to now; tapping one
+ * reviews the diagram/log as of that phase. The trailing + advances the game.
+ * There is no rewind that removes a phase with content — the game clock only
+ * moves forward, and stepping back is offered only to undo an empty advance.
  */
-export function Timeline({ currentRank, viewRank, onSelect }: Props) {
+export function Timeline({ currentRank, viewRank, onSelect, onAdvance, onRetract, canRetract }: Props) {
   const FIRST = 2 // Night 1
   const ranks: number[] = []
   for (let r = FIRST; r <= currentRank; r++) ranks.push(r)
@@ -22,7 +29,7 @@ export function Timeline({ currentRank, viewRank, onSelect }: Props) {
 
   return (
     <div className="mt-3">
-      <div className="flex gap-1 overflow-x-auto pb-1">
+      <div className="flex items-center gap-1 overflow-x-auto pb-1">
         {ranks.map((r) => {
           const { round, phase } = phaseFromRank(r)
           const isView = r === viewRank
@@ -44,15 +51,32 @@ export function Timeline({ currentRank, viewRank, onSelect }: Props) {
             </button>
           )
         })}
+
+        <button
+          onClick={onAdvance}
+          className="min-w-9 shrink-0 rounded-lg border border-dashed border-line bg-surface px-2 py-1.5 text-xs font-medium text-muted active:bg-raised"
+          aria-label="Advance to next phase"
+        >
+          ＋
+        </button>
       </div>
 
-      {reviewing && (
+      {reviewing ? (
         <button
           onClick={() => onSelect(currentRank)}
           className="mt-1 w-full rounded-lg border border-info/40 bg-info/10 py-1.5 text-xs text-info active:bg-info/20"
         >
-          Reviewing the past · tap to return to live
+          Reviewing the past · new entries record into this phase · tap to return to live
         </button>
+      ) : (
+        canRetract && (
+          <button
+            onClick={onRetract}
+            className="mt-1 text-[11px] text-muted underline decoration-dotted active:text-ink"
+          >
+            Undo last phase
+          </button>
+        )
       )}
     </div>
   )

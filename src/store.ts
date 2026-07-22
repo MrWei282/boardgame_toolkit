@@ -18,6 +18,10 @@ type NewEvent = {
   note?: string
 }
 
+/** Which phase to stamp a new entry into. Defaults to the live phase; the
+ *  timeline passes the phase being viewed so you can log into the past. */
+type PhaseRef = { round: number; phase: Phase }
+
 type Store = {
   hydrated: boolean
   sessions: Record<string, Session>
@@ -31,11 +35,11 @@ type Store = {
   nextPhase: () => void
   prevPhase: () => void
 
-  addAssertion: (input: NewAssertion) => void
+  addAssertion: (input: NewAssertion, at?: PhaseRef) => void
   deleteAssertion: (id: string) => void
-  setRoleTag: (playerId: PlayerId, roleIds: RoleId[]) => void
+  setRoleTag: (playerId: PlayerId, roleIds: RoleId[], at?: PhaseRef) => void
 
-  addEvent: (input: NewEvent) => void
+  addEvent: (input: NewEvent, at?: PhaseRef) => void
   deleteEvent: (id: string) => void
 }
 
@@ -120,12 +124,12 @@ export const useStore = create<Store>()((set, get) => {
         return { ...s, phase: 'day', round: s.round - 1 }
       }),
 
-    addAssertion: (input) =>
+    addAssertion: (input, at) =>
       updateSession((s) => {
         const assertion: Assertion = {
           id: uid(),
-          round: s.round,
-          phase: s.phase,
+          round: at?.round ?? s.round,
+          phase: at?.phase ?? s.phase,
           speaker: input.speaker,
           relation: input.relation,
           targets: input.targets,
@@ -142,7 +146,7 @@ export const useStore = create<Store>()((set, get) => {
         assertions: s.assertions.filter((a) => a.id !== id),
       })),
 
-    setRoleTag: (playerId, roleIds) =>
+    setRoleTag: (playerId, roleIds, at) =>
       updateSession((s) => {
         // Append-only: removing a guess writes a new entry with fewer roles
         // rather than mutating the old one, which is what gives the timeline
@@ -151,19 +155,19 @@ export const useStore = create<Store>()((set, get) => {
           id: uid(),
           playerId,
           roleIds,
-          round: s.round,
-          phase: s.phase,
+          round: at?.round ?? s.round,
+          phase: at?.phase ?? s.phase,
           createdAt: Date.now(),
         }
         return { ...s, roleTags: [...s.roleTags, tag] }
       }),
 
-    addEvent: (input) =>
+    addEvent: (input, at) =>
       updateSession((s) => {
         const event: GameEvent = {
           id: uid(),
-          round: s.round,
-          phase: s.phase,
+          round: at?.round ?? s.round,
+          phase: at?.phase ?? s.phase,
           label: input.label.trim(),
           subjects: input.subjects,
           setsAlive: input.setsAlive,
