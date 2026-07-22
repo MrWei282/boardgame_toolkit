@@ -1,3 +1,4 @@
+import { aliveCount } from '../projections'
 import { phaseLabel, useStore } from '../store'
 import type { Session } from '../types'
 
@@ -23,7 +24,7 @@ export function RoundBar({ session }: { session: Session }) {
         <div className="flex-1 text-center">
           <div className="text-base font-semibold">{phaseLabel(session.round, session.phase)}</div>
           <div className="text-[11px] text-muted">
-            {session.players.filter((p) => p.alive).length} of {session.players.length} alive
+            {aliveCount(session)} of {session.players.length} alive
           </div>
         </div>
 

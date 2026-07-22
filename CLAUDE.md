@@ -82,10 +82,30 @@ type RoleTag = {          // append-only; UI shows the latest *entry* per player
   phase: 'day' | 'night'
 }
 
-type PlayerState = { id: PlayerId; seat: number; name: string; alive: boolean }
+type GameEvent = {         // things that happened, as opposed to things said
+  id: string
+  round: number
+  phase: 'day' | 'night'
+  label: string            // free text: "Executed", "Died at night", "Quest failed"
+  subjects: PlayerId[]     // who it touched
+  setsAlive?: boolean      // undefined = no life effect; false = dies; true = revives
+  note?: string
+}
+
+type PlayerState = { id: PlayerId; seat: number; name: string }  // no `alive` — derived
 ```
 
 Notes on why it looks like this:
+
+- **`GameEvent` is deliberately generic — a free-text label plus subjects, no
+  per-game event vocabulary in config.** Covers BotC deaths, Avalon quests, ability
+  triggers and games we haven't modelled. The only structured consequence is
+  `setsAlive` on the *event instance* (not a config flag), which is what lets
+  resurrection be `setsAlive: true` and keeps games from needing a kill-vocabulary.
+- **Aliveness is derived from events, never stored** (`projections.ts`): the latest
+  life-affecting event per player wins, so the timeline shows true historical
+  alive/dead and deleting/striking a death reverts it with no state to unwind. The
+  invariant that makes this hold: struck or deleted entries count in *no* projection.
 
 - **`targets` is an array** even though v1 writes one element. BotC info roles break
   a strict triple immediately — Empath says "1 evil between P2 and P4", Fortune
@@ -130,14 +150,21 @@ Notes on why it looks like this:
 
 Ship one stage at a time; do not build a large prototype in one go.
 
-1. **Config load, session setup, assertion log, relationship arrows** ← current
-2. Timeline scrubber over the log; round diff highlight
-3. Subjective reads layer (`myRead` as node attribute), alive/dead history
-4. History and review: end-of-game truth entry, post-mortem comparing reads to
-   reality, session archive, multi-session game-night grouping
-5. Second game (Werewolf or Deception) — the real test of the config abstraction.
+1. **Done** — Config load, session setup, assertion log, relationship arrows, focus mode.
+2. **Done** — Timeline scrubber over the log, round-diff highlight, and a generic
+   `GameEvent` log (deaths and anything else). Alive/dead is *derived* from events
+   (`setsAlive` per event, latest wins), never stored — see `projections.ts`.
+   Alive/dead history was pulled forward to here rather than stage 3.
+3. **Diagram & log polish (3.5)** — nomination/vote roll-up (votes stop drawing
+   their own arrows; they group under the nomination, shown on tap), edit an entry,
+   strikethrough (soft-hide, reversible; excluded from *all* projections), pin/star.
+4. Subjective reads layer (`myRead` as node attribute) — the suspicion primitive.
+   Expected to need a refactor.
+5. History and review: end-of-game truth entry, post-mortem comparing reads to
+   reality, session archive, multi-session game-night grouping.
+6. Second game (Werewolf or Deception) — the real test of the config abstraction.
    Expect to refactor.
-6. Accounts, cloud sync, sharing
+7. Accounts, cloud sync, sharing.
 
 Explicitly out of scope: multi-player shared sessions (turns a note-taking need
 into a distributed-consistency problem), Storyteller/moderator features (crowded

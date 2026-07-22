@@ -1,4 +1,5 @@
 import { useState, type ReactNode } from 'react'
+import { isAlive } from '../projections'
 import { useStore } from '../store'
 import { toneSolid } from '../tone'
 import type { GameConfig, PlayerId, RoleId, ScriptConfig, Session } from '../types'
@@ -24,6 +25,7 @@ export function AssertionSheet({ open, onClose, session, game, script }: Props) 
   const [note, setNote] = useState('')
 
   const relation = game.relations.find((r) => r.id === relationId) ?? null
+  const deadIds = new Set(session.players.filter((p) => !isAlive(session, p.id)).map((p) => p.id))
 
   function reset() {
     setSpeaker(null)
@@ -89,6 +91,7 @@ export function AssertionSheet({ open, onClose, session, game, script }: Props) 
             players={session.players}
             selected={speaker ? [speaker] : []}
             onSelect={(id) => setSpeaker(speaker === id ? null : id)}
+            deadIds={deadIds}
           />
         </section>
 
@@ -117,7 +120,12 @@ export function AssertionSheet({ open, onClose, session, game, script }: Props) 
             <SectionLabel n={3}>
               {relation.targets === 'one' ? 'About whom' : 'About whom (any number)'}
             </SectionLabel>
-            <SeatGrid players={session.players} selected={targets} onSelect={toggleTarget} />
+            <SeatGrid
+              players={session.players}
+              selected={targets}
+              onSelect={toggleTarget}
+              deadIds={deadIds}
+            />
             {relation.id === 'info' && (
               <p className="mt-2 text-xs text-muted">
                 A player claiming their own role is themself as both speaker and target.

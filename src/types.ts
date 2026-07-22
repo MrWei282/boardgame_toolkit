@@ -48,12 +48,36 @@ export type RoleTag = {
   createdAt: number
 }
 
+/**
+ * Something that happened, as opposed to something someone said. Deliberately
+ * generic — a free-text label plus who it touched — so it covers BotC deaths,
+ * Avalon quests, ability triggers, and games we haven't modelled yet, with no
+ * per-game event vocabulary in config.
+ *
+ * `setsAlive` carries the only structured consequence we need so far:
+ *   undefined → no effect on life (an ability trigger, a quest result)
+ *   false     → the subjects die
+ *   true      → the subjects come back (resurrection abilities exist)
+ * Aliveness is *derived* from these events (latest one wins per player), never
+ * stored, so deleting or striking an event reverts its effect for free.
+ */
+export type GameEvent = {
+  id: string
+  round: number
+  phase: Phase
+  label: string
+  subjects: PlayerId[]
+  setsAlive?: boolean
+  note?: string
+  createdAt: number
+}
+
 export type PlayerState = {
   id: PlayerId
   /** Physical seat order. Game-critical in BotC — adjacency drives abilities. */
   seat: number
   name: string
-  alive: boolean
+  // No `alive` field — a player's life is derived from GameEvents (see projections.ts).
 }
 
 export type Session = {
@@ -66,6 +90,7 @@ export type Session = {
   players: PlayerState[]
   assertions: Assertion[]
   roleTags: RoleTag[]
+  events: GameEvent[]
 }
 
 // --- config ------------------------------------------------------------------

@@ -1,6 +1,7 @@
 import { getRole, getTeam } from '../config'
 import { deriveEdges, neighboursOf } from '../diagram/edges'
 import { directedEdge, seatPoint, selfEdge, tokenWedge, type Pt } from '../diagram/geometry'
+import { isAlive } from '../projections'
 import { currentRoleIds } from '../store'
 import type { GameConfig, PlayerId, ScriptConfig, Session, Tone } from '../types'
 
@@ -96,6 +97,7 @@ export function SeatCircle({
         {session.players.map((p) => {
           const c = centres.get(p.id)!
           const roleIds = currentRoleIds(session, p.id)
+          const alive = isAlive(session, p.id)
           const dim = lit ? (lit.has(p.id) ? 1 : 0.22) : 1
           const focused = focusedId === p.id
 
@@ -128,9 +130,9 @@ export function SeatCircle({
                 cy={c.y}
                 r={tokenR}
                 fill="none"
-                stroke={focused ? 'var(--color-info)' : p.alive ? 'var(--color-line)' : 'var(--color-evil)'}
+                stroke={focused ? 'var(--color-info)' : alive ? 'var(--color-line)' : 'var(--color-evil)'}
                 strokeWidth={focused ? 3 : 2}
-                strokeDasharray={p.alive ? undefined : '4 3'}
+                strokeDasharray={alive ? undefined : '4 3'}
               />
 
               {/* Seat number on a chip so it stays legible over the wedges. */}
@@ -159,6 +161,7 @@ export function SeatCircle({
           const label = seatPoint(p.seat, n, CENTER.x, CENTER.y, RING_R + tokenR + 9)
           const anchor = label.x < CENTER.x - 4 ? 'end' : label.x > CENTER.x + 4 ? 'start' : 'middle'
           const dim = lit ? (lit.has(p.id) ? 1 : 0.22) : 1
+          const alive = isAlive(session, p.id)
           return (
             <text
               key={p.id}
@@ -167,8 +170,8 @@ export function SeatCircle({
               textAnchor={anchor}
               dominantBaseline="central"
               fontSize={11}
-              fill={p.alive ? 'var(--color-ink)' : 'var(--color-muted)'}
-              textDecoration={p.alive ? undefined : 'line-through'}
+              fill={alive ? 'var(--color-ink)' : 'var(--color-muted)'}
+              textDecoration={alive ? undefined : 'line-through'}
               style={{ opacity: dim }}
             >
               {p.name.length > 8 ? p.name.slice(0, 7) + '…' : p.name}
