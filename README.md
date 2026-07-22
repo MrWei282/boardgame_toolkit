@@ -47,21 +47,41 @@ worker. Any static host can serve it.
 
 The output is static, so hosting is free and simple. Pick one:
 
-### Cloudflare Pages (recommended, has a URL you can open anywhere)
+There are **two separate ways** to put it on Cloudflare Pages. Pick one — don't
+mix them. Mixing them (putting `wrangler pages deploy` into the Git build
+command) is the usual reason a project exists but no site is live.
 
-1. Push this repo to GitHub (already done).
-2. In the Cloudflare dashboard: **Workers & Pages → Create → Pages → Connect to Git**.
-3. Select the repo and set:
-   - **Build command:** `npm run build`
+#### Option A — Git integration (recommended, auto-deploys on push)
+
+Cloudflare clones the repo and runs the build itself, then publishes the output.
+You do **not** run `wrangler` here.
+
+1. In the Cloudflare dashboard: **Workers & Pages → Create → Pages → Connect to Git**.
+2. Select the repo, branch `main`, and set:
+   - **Framework preset:** `Vite` (or `None`)
+   - **Build command:** `npm run build`  ← this only, nothing else
    - **Build output directory:** `dist`
-4. Deploy. Every push to `main` rebuilds and publishes automatically.
+3. Save and deploy. You get a `https://<project>.pages.dev` URL, and every push
+   to `main` rebuilds and republishes automatically.
 
-Or deploy the built folder directly without Git, using the Wrangler CLI:
+> If you already created the project with a wrong build command, fix it under
+> **Settings → Builds & deployments → Build configuration**, set the command to
+> exactly `npm run build` and output to `dist`, then **Retry deployment** (or
+> push a new commit). Do not include `wrangler` in that command.
+
+#### Option B — Direct upload from your machine (no Git build)
+
+You build locally and upload the finished `dist/` folder yourself:
 
 ```bash
 npm run build
+npx wrangler login          # first time only — opens a browser to authorise
 npx wrangler pages deploy dist
 ```
+
+The first run asks to create the Pages project; after that the same command
+republishes. Use this if you'd rather not connect the repo. Don't also set a
+build command in the dashboard for this project — there's no Git build here.
 
 ### Netlify (fastest one-off test)
 
