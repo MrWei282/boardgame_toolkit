@@ -154,20 +154,14 @@ export function DiagramView({ session, game, script, onTagPlayer, onEditAssertio
           </div>
 
           {/* My alignment read — a gut call, distinct from the role guess above. */}
-          <div className="mt-2.5">
-            <div className="flex items-center gap-2">
-              <span className="shrink-0 text-[11px] text-muted">My read</span>
-              <div className="flex-1">
-                <LeanControl
-                  value={currentRead(session, focused.id)}
-                  onChange={(lean) => setRead(focused.id, lean, at)}
-                  endpoints
-                />
-              </div>
+          <div className="mt-2.5 flex items-center gap-2">
+            <span className="shrink-0 text-[11px] text-muted">My read</span>
+            <div className="flex-1">
+              <LeanControl
+                value={currentRead(session, focused.id)}
+                onChange={(lean) => setRead(focused.id, lean, at)}
+              />
             </div>
-            <p className="mt-1 text-[10px] text-muted/70">
-              −− ++ certain · − + leaning · · no read
-            </p>
           </div>
 
           {involving.length > 0 ? (

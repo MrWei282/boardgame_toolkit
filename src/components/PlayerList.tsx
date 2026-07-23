@@ -19,11 +19,6 @@ type Props = {
 export function PlayerList({ session, game, script, onTagPlayer, onEditLife, at }: Props) {
   const setRead = useStore((s) => s.setRead)
   return (
-    <>
-    <p className="mb-2 px-1 text-[11px] text-muted">
-      My read: <span className="text-evil">certain evil</span> ←→{' '}
-      <span className="text-good">certain good</span>
-    </p>
     <ul className="space-y-1.5">
       {session.players.map((player) => {
         const roleIds = currentRoleIds(session, player.id)
@@ -106,6 +101,5 @@ export function PlayerList({ session, game, script, onTagPlayer, onEditLife, at 
         )
       })}
     </ul>
-    </>
   )
 }

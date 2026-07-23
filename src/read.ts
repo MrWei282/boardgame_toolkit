@@ -3,13 +3,17 @@ import type { Tone } from './types'
 // The read primitive is a signed lean (-2..+2). This is the one place the
 // good↔evil axis is interpreted, so a multi-team game later only touches here.
 
-/** The five read steps, evil → neutral → good, in the order the control shows them. */
-export const LEAN_STEPS: { lean: number; label: string; aria: string }[] = [
-  { lean: -2, label: '−−', aria: 'evil, sure' },
-  { lean: -1, label: '−', aria: 'evil, leaning' },
-  { lean: 0, label: '·', aria: 'no read' },
-  { lean: 1, label: '+', aria: 'good, leaning' },
-  { lean: 2, label: '++', aria: 'good, sure' },
+/**
+ * The five read steps, evil → neutral → good, in the order the control shows them.
+ * The label is spelled out — a `−−/++` shorthand read as noise; the words carry the
+ * scale on their own, so no separate legend is needed.
+ */
+export const LEAN_STEPS: { lean: number; label: string }[] = [
+  { lean: -2, label: 'certain evil' },
+  { lean: -1, label: 'possible evil' },
+  { lean: 0, label: 'neutral' },
+  { lean: 1, label: 'possible good' },
+  { lean: 2, label: 'certain good' },
 ]
 
 export function leanTone(lean: number): Tone {

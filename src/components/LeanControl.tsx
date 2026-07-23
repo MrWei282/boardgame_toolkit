@@ -3,12 +3,10 @@ import { LEAN_STEPS } from '../read'
 type Props = {
   value: number
   onChange: (lean: number) => void
-  /** Flank the segments with evil/good labels so the axis reads without a legend. */
-  endpoints?: boolean
 }
 
 // Whole literal class strings so Tailwind's scanner sees them. The extremes take a
-// heavier fill than the leans, so ++ looks more certain than + at a glance.
+// heavier fill than the leans, so "certain" reads stronger than "possible".
 function activeClass(lean: number): string {
   switch (lean) {
     case -2:
@@ -29,35 +27,31 @@ function idleClass(lean: number): string {
 }
 
 /**
- * A five-segment alignment read: evil ← neutral → good. One tap sets the read —
- * reads are light enough that they don't warrant a sheet, and a live discussion
- * leaves no time to open one. Clearing is just tapping the neutral middle.
+ * A five-segment alignment read: certain evil → neutral → certain good. One tap
+ * sets the read — reads are light enough that they don't warrant a sheet, and a
+ * live discussion leaves no time to open one. Clearing is tapping neutral.
  */
-export function LeanControl({ value, onChange, endpoints }: Props) {
+export function LeanControl({ value, onChange }: Props) {
   return (
-    <div className="flex items-center gap-1.5">
-      {endpoints && <span className="shrink-0 text-[10px] font-medium text-evil/80">evil</span>}
-      <div className="flex flex-1 overflow-hidden rounded-lg border border-line" role="group" aria-label="My read">
-        {LEAN_STEPS.map((step, i) => {
-          const active = value === step.lean
-          return (
-            <button
-              key={step.lean}
-              aria-label={step.aria}
-              aria-pressed={active}
-              onClick={() => onChange(step.lean)}
-              className={[
-                'flex-1 py-1.5 text-sm font-semibold tabular-nums active:bg-raised',
-                i > 0 ? 'border-l border-line' : '',
-                active ? activeClass(step.lean) : idleClass(step.lean),
-              ].join(' ')}
-            >
-              {step.label}
-            </button>
-          )
-        })}
-      </div>
-      {endpoints && <span className="shrink-0 text-[10px] font-medium text-good/80">good</span>}
+    <div className="flex overflow-hidden rounded-lg border border-line" role="group" aria-label="My read">
+      {LEAN_STEPS.map((step, i) => {
+        const active = value === step.lean
+        return (
+          <button
+            key={step.lean}
+            aria-label={step.label}
+            aria-pressed={active}
+            onClick={() => onChange(step.lean)}
+            className={[
+              'flex-1 px-0.5 py-1.5 text-center text-[10px] leading-tight font-medium',
+              i > 0 ? 'border-l border-line' : '',
+              active ? activeClass(step.lean) : idleClass(step.lean),
+            ].join(' ')}
+          >
+            {step.label}
+          </button>
+        )
+      })}
     </div>
   )
 }
