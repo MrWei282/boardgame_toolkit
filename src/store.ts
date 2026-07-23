@@ -1,6 +1,6 @@
 import { create } from 'zustand'
-import { loadAll, saveAll } from './storage'
-import type { Assertion, Phase, PlayerId, RoleId, RoleTag, Session } from './types'
+import { loadAll, saveAll, VERSION } from './storage'
+import type { Assertion, GameEvent, Phase, PlayerId, RoleId, RoleTag, Session } from './types'
 import { uid } from './uid'
 
 type NewAssertion = {
@@ -10,6 +10,17 @@ type NewAssertion = {
   roles?: RoleId[]
   note?: string
 }
+
+type NewEvent = {
+  label: string
+  subjects: PlayerId[]
+  setsAlive?: boolean
+  note?: string
+}
+
+/** Which phase to stamp a new entry into. Defaults to the live phase; the
+ *  timeline passes the phase being viewed so you can log into the past. */
+type PhaseRef = { round: number; phase: Phase }
 
 type Store = {
   hydrated: boolean
@@ -23,11 +34,21 @@ type Store = {
 
   nextPhase: () => void
   prevPhase: () => void
-  toggleAlive: (playerId: PlayerId) => void
 
-  addAssertion: (input: NewAssertion) => void
+  addAssertion: (input: NewAssertion, at?: PhaseRef) => void
+  updateAssertion: (id: string, patch: Partial<Assertion>) => void
   deleteAssertion: (id: string) => void
-  setRoleTag: (playerId: PlayerId, roleIds: RoleId[]) => void
+  setRoleTag: (playerId: PlayerId, roleIds: RoleId[], at?: PhaseRef) => void
+
+  /** Log a nomination plus a vote per voter, in one entry. */
+  addNomination: (
+    input: { nominator: PlayerId; nominee: PlayerId; relation: string; voteRelation: string; voters: PlayerId[]; note?: string },
+    at?: PhaseRef,
+  ) => void
+
+  addEvent: (input: NewEvent, at?: PhaseRef) => void
+  updateEvent: (id: string, patch: Partial<GameEvent>) => void
+  deleteEvent: (id: string) => void
 }
 
 export const useStore = create<Store>()((set, get) => {
@@ -40,7 +61,7 @@ export const useStore = create<Store>()((set, get) => {
 
     const next = { ...sessions, [currentSessionId]: fn(current) }
     set({ sessions: next })
-    void saveAll({ version: 1, currentSessionId, sessions: next })
+    void saveAll({ version: VERSION, currentSessionId, sessions: next })
   }
 
   return {
@@ -70,21 +91,21 @@ export const useStore = create<Store>()((set, get) => {
           id: uid(),
           seat: i,
           name: name.trim() || `P${i + 1}`,
-          alive: true,
         })),
         assertions: [],
         roleTags: [],
+        events: [],
       }
       const sessions = { ...get().sessions, [session.id]: session }
       set({ sessions, currentSessionId: session.id })
-      void saveAll({ version: 1, currentSessionId: session.id, sessions })
+      void saveAll({ version: VERSION, currentSessionId: session.id, sessions })
     },
 
     closeSession: () => {
       // Keeps the session in storage — closing is leaving the game, not deleting it.
       const { sessions } = get()
       set({ currentSessionId: null })
-      void saveAll({ version: 1, currentSessionId: null, sessions })
+      void saveAll({ version: VERSION, currentSessionId: null, sessions })
     },
 
     deleteSession: (id) => {
@@ -93,7 +114,7 @@ export const useStore = create<Store>()((set, get) => {
       delete next[id]
       const nextCurrent = currentSessionId === id ? null : currentSessionId
       set({ sessions: next, currentSessionId: nextCurrent })
-      void saveAll({ version: 1, currentSessionId: nextCurrent, sessions: next })
+      void saveAll({ version: VERSION, currentSessionId: nextCurrent, sessions: next })
     },
 
     // Phase order is night 1 -> day 1 -> night 2 -> day 2 ...
@@ -111,18 +132,12 @@ export const useStore = create<Store>()((set, get) => {
         return { ...s, phase: 'day', round: s.round - 1 }
       }),
 
-    toggleAlive: (playerId) =>
-      updateSession((s) => ({
-        ...s,
-        players: s.players.map((p) => (p.id === playerId ? { ...p, alive: !p.alive } : p)),
-      })),
-
-    addAssertion: (input) =>
+    addAssertion: (input, at) =>
       updateSession((s) => {
         const assertion: Assertion = {
           id: uid(),
-          round: s.round,
-          phase: s.phase,
+          round: at?.round ?? s.round,
+          phase: at?.phase ?? s.phase,
           speaker: input.speaker,
           relation: input.relation,
           targets: input.targets,
@@ -133,13 +148,48 @@ export const useStore = create<Store>()((set, get) => {
         return { ...s, assertions: [...s.assertions, assertion] }
       }),
 
+    updateAssertion: (id, patch) =>
+      updateSession((s) => ({
+        ...s,
+        assertions: s.assertions.map((a) => (a.id === id ? { ...a, ...patch } : a)),
+      })),
+
     deleteAssertion: (id) =>
       updateSession((s) => ({
         ...s,
         assertions: s.assertions.filter((a) => a.id !== id),
       })),
 
-    setRoleTag: (playerId, roleIds) =>
+    addNomination: (input, at) =>
+      updateSession((s) => {
+        const round = at?.round ?? s.round
+        const phase = at?.phase ?? s.phase
+        const base = Date.now()
+        const nomination: Assertion = {
+          id: uid(),
+          round,
+          phase,
+          speaker: input.nominator,
+          relation: input.relation,
+          targets: [input.nominee],
+          note: input.note?.trim() || undefined,
+          createdAt: base,
+        }
+        // One vote assertion per voter, all targeting the nominee. They render
+        // rolled up under the nomination rather than as their own arrows.
+        const votes: Assertion[] = input.voters.map((voter, i) => ({
+          id: uid(),
+          round,
+          phase,
+          speaker: voter,
+          relation: input.voteRelation,
+          targets: [input.nominee],
+          createdAt: base + 1 + i,
+        }))
+        return { ...s, assertions: [...s.assertions, nomination, ...votes] }
+      }),
+
+    setRoleTag: (playerId, roleIds, at) =>
       updateSession((s) => {
         // Append-only: removing a guess writes a new entry with fewer roles
         // rather than mutating the old one, which is what gives the timeline
@@ -148,12 +198,41 @@ export const useStore = create<Store>()((set, get) => {
           id: uid(),
           playerId,
           roleIds,
-          round: s.round,
-          phase: s.phase,
+          round: at?.round ?? s.round,
+          phase: at?.phase ?? s.phase,
           createdAt: Date.now(),
         }
         return { ...s, roleTags: [...s.roleTags, tag] }
       }),
+
+    addEvent: (input, at) =>
+      updateSession((s) => {
+        const event: GameEvent = {
+          id: uid(),
+          round: at?.round ?? s.round,
+          phase: at?.phase ?? s.phase,
+          label: input.label.trim(),
+          subjects: input.subjects,
+          setsAlive: input.setsAlive,
+          note: input.note?.trim() || undefined,
+          createdAt: Date.now(),
+        }
+        return { ...s, events: [...s.events, event] }
+      }),
+
+    updateEvent: (id, patch) =>
+      updateSession((s) => ({
+        ...s,
+        events: s.events.map((e) => (e.id === id ? { ...e, ...patch } : e)),
+      })),
+
+    // Deleting a death event just removes it from the log; aliveness is derived,
+    // so the affected player is alive again on the next render with no extra work.
+    deleteEvent: (id) =>
+      updateSession((s) => ({
+        ...s,
+        events: s.events.filter((e) => e.id !== id),
+      })),
   }
 })
 

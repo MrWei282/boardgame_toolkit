@@ -36,7 +36,8 @@
       "targets": "one",
       "roles": "none",
       "edge": true,
-      "tone": "neutral"
+      "tone": "neutral",
+      "collectsVotesAs": "vote"
     },
     {
       "id": "vote",
@@ -44,8 +45,9 @@
       "phrase": "votes for",
       "targets": "one",
       "roles": "none",
-      "edge": true,
-      "tone": "neutral"
+      "edge": false,
+      "tone": "neutral",
+      "internal": true
     },
     {
       "id": "info",

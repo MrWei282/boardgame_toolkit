@@ -1,10 +1,12 @@
 import { useState } from 'react'
 import { getRole, getTeam } from '../config'
 import { assertionParts } from '../describe'
+import { isAlive } from '../projections'
 import { currentRoleIds, useStore } from '../store'
 import { toneChip, toneText } from '../tone'
-import type { GameConfig, PlayerId, ScriptConfig, Session } from '../types'
+import type { GameConfig, GameEvent, PlayerId, ScriptConfig, Session } from '../types'
 import { AssertionText } from './AssertionText'
+import { DeleteButton } from './DeleteButton'
 import { SeatCircle } from './SeatCircle'
 
 type Props = {
@@ -16,6 +18,7 @@ type Props = {
 
 export function DiagramView({ session, game, script, onTagPlayer }: Props) {
   const deleteAssertion = useStore((s) => s.deleteAssertion)
+  const deleteEvent = useStore((s) => s.deleteEvent)
 
   // Focus mode is the working view: tap a token to isolate it, tap empty space
   // to clear. A full 15-player arrow graph is unreadable on a phone.
@@ -23,13 +26,49 @@ export function DiagramView({ session, game, script, onTagPlayer }: Props) {
 
   const focused = focusedId ? session.players.find((p) => p.id === focusedId) : null
 
+  // Everything about the focused player, newest first: claims they made or were
+  // named in, plus events that happened to them (where info also surfaces).
   const involving = focusedId
-    ? [...session.assertions]
-        .filter((a) => a.speaker === focusedId || a.targets.includes(focusedId))
-        .sort((a, b) => b.createdAt - a.createdAt)
+    ? [
+        ...session.assertions
+          .filter((a) => a.speaker === focusedId || a.targets.includes(focusedId))
+          .map((a) => ({ at: a.createdAt, node: assertionNode(a) })),
+        ...session.events
+          .filter((e) => e.subjects.includes(focusedId))
+          .map((e) => ({ at: e.createdAt, node: eventNode(e) })),
+      ].sort((x, y) => y.at - x.at)
     : []
 
   const guessedRoleIds = focusedId ? currentRoleIds(session, focusedId) : []
+
+  function assertionNode(a: Session['assertions'][number]) {
+    const parts = assertionParts(a, session, game, script)
+    return (
+      <li key={a.id} className="flex items-start gap-2 text-sm leading-snug">
+        <span className="min-w-0 flex-1">
+          <AssertionText parts={parts} />
+          {parts.note && <span className="mt-0.5 block text-xs text-muted">“{parts.note}”</span>}
+        </span>
+        <DeleteButton onConfirm={() => deleteAssertion(a.id)} />
+      </li>
+    )
+  }
+
+  function eventNode(e: GameEvent) {
+    const lifeTone = e.setsAlive === false ? 'text-evil' : e.setsAlive === true ? 'text-good' : 'text-muted'
+    return (
+      <li key={e.id} className="flex items-start gap-2 text-sm leading-snug">
+        <span className="min-w-0 flex-1">
+          <span className={`mr-1 ${lifeTone}`}>◆</span>
+          <span className="font-medium">{e.label || 'Event'}</span>
+          {e.setsAlive === false && <span className="text-evil"> · died</span>}
+          {e.setsAlive === true && <span className="text-good"> · revived</span>}
+          {e.note && <span className="mt-0.5 block text-xs text-muted">“{e.note}”</span>}
+        </span>
+        <DeleteButton onConfirm={() => deleteEvent(e.id)} message="Delete this event?" />
+      </li>
+    )
+  }
 
   return (
     <div>
@@ -47,7 +86,7 @@ export function DiagramView({ session, game, script, onTagPlayer }: Props) {
           <div className="flex items-center justify-between">
             <div className="text-sm font-semibold">
               {focused.name}
-              {!focused.alive && <span className="ml-2 text-xs text-evil">†dead</span>}
+              {!isAlive(session, focused.id) && <span className="ml-2 text-xs text-evil">†dead</span>}
             </div>
             <button
               onClick={() => onTagPlayer(focused.id)}
@@ -83,30 +122,7 @@ export function DiagramView({ session, game, script, onTagPlayer }: Props) {
           </div>
 
           {involving.length > 0 ? (
-            <ul className="mt-2 space-y-1">
-              {involving.map((a) => {
-                const parts = assertionParts(a, session, game, script)
-                return (
-                  <li key={a.id} className="flex items-start gap-2 text-sm leading-snug">
-                    <span className="min-w-0 flex-1">
-                      <AssertionText parts={parts} />
-                      {parts.note && (
-                        <span className="mt-0.5 block text-xs text-muted">“{parts.note}”</span>
-                      )}
-                    </span>
-                    {/* Delete a claim that turned out to be a lie, right where you
-                        review it. */}
-                    <button
-                      onClick={() => deleteAssertion(a.id)}
-                      aria-label="Delete this entry"
-                      className="shrink-0 rounded-lg px-2 py-0.5 text-xs text-muted active:bg-raised"
-                    >
-                      ✕
-                    </button>
-                  </li>
-                )
-              })}
-            </ul>
+            <ul className="mt-2 space-y-1">{involving.map((x) => x.node)}</ul>
           ) : (
             <p className="mt-2 text-xs text-muted">Nothing logged about them yet.</p>
           )}

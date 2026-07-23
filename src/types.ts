@@ -27,6 +27,10 @@ export type Assertion = {
   roles?: RoleId[]
   /** The quote or evidence. */
   note?: string
+  /** Struck: kept in the log (reversible) but excluded from every projection. */
+  hidden?: boolean
+  /** Starred: floats to the top of its phase group in the log. */
+  pinned?: boolean
   createdAt: number
 }
 
@@ -48,12 +52,40 @@ export type RoleTag = {
   createdAt: number
 }
 
+/**
+ * Something that happened, as opposed to something someone said. Deliberately
+ * generic — a free-text label plus who it touched — so it covers BotC deaths,
+ * Avalon quests, ability triggers, and games we haven't modelled yet, with no
+ * per-game event vocabulary in config.
+ *
+ * `setsAlive` carries the only structured consequence we need so far:
+ *   undefined → no effect on life (an ability trigger, a quest result)
+ *   false     → the subjects die
+ *   true      → the subjects come back (resurrection abilities exist)
+ * Aliveness is *derived* from these events (latest one wins per player), never
+ * stored, so deleting or striking an event reverts its effect for free.
+ */
+export type GameEvent = {
+  id: string
+  round: number
+  phase: Phase
+  label: string
+  subjects: PlayerId[]
+  setsAlive?: boolean
+  note?: string
+  /** Struck: kept in the log (reversible) but excluded from every projection. */
+  hidden?: boolean
+  /** Starred: floats to the top of its phase group in the log. */
+  pinned?: boolean
+  createdAt: number
+}
+
 export type PlayerState = {
   id: PlayerId
   /** Physical seat order. Game-critical in BotC — adjacency drives abilities. */
   seat: number
   name: string
-  alive: boolean
+  // No `alive` field — a player's life is derived from GameEvents (see projections.ts).
 }
 
 export type Session = {
@@ -66,6 +98,7 @@ export type Session = {
   players: PlayerState[]
   assertions: Assertion[]
   roleTags: RoleTag[]
+  events: GameEvent[]
 }
 
 // --- config ------------------------------------------------------------------
@@ -100,6 +133,18 @@ export type RelationConfig = {
    */
   edge: boolean
   tone: Tone
+  /**
+   * If set, this relation is a nomination whose votes are recorded with the named
+   * relation. Votes then roll up under the nomination instead of drawing their own
+   * arrows — nominations/votes exist across games, so this stays config-driven.
+   */
+  collectsVotesAs?: RelationId
+  /**
+   * Not offered as a standalone choice in the entry sheet — created only through
+   * another flow (votes come from the nomination's voter list). Still a real
+   * relation for rendering and roll-up.
+   */
+  internal?: boolean
 }
 
 export type TeamConfig = {

@@ -24,6 +24,7 @@ export function deriveEdges(session: Session, game: GameConfig): DerivedEdge[] {
   const merged = new Map<string, DerivedEdge>()
 
   for (const a of session.assertions) {
+    if (a.hidden) continue // struck entries count in no projection
     const relation = getRelation(game, a.relation)
     if (!relation.edge) continue
 

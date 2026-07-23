@@ -1,5 +1,6 @@
 import { getRole, getTeam } from '../config'
-import { currentRoleIds, useStore } from '../store'
+import { isAlive } from '../projections'
+import { currentRoleIds } from '../store'
 import { toneChip } from '../tone'
 import type { GameConfig, PlayerId, ScriptConfig, Session } from '../types'
 
@@ -8,15 +9,16 @@ type Props = {
   game: GameConfig
   script: ScriptConfig
   onTagPlayer: (id: PlayerId) => void
+  /** Open the event sheet to record a death/revival for this player. */
+  onEditLife: (id: PlayerId) => void
 }
 
-export function PlayerList({ session, game, script, onTagPlayer }: Props) {
-  const toggleAlive = useStore((s) => s.toggleAlive)
-
+export function PlayerList({ session, game, script, onTagPlayer, onEditLife }: Props) {
   return (
     <ul className="space-y-1.5">
       {session.players.map((player) => {
         const roleIds = currentRoleIds(session, player.id)
+        const alive = isAlive(session, player.id)
 
         return (
           <li key={player.id} className="flex items-stretch gap-1.5">
@@ -24,7 +26,7 @@ export function PlayerList({ session, game, script, onTagPlayer }: Props) {
               onClick={() => onTagPlayer(player.id)}
               className={[
                 'flex min-h-14 flex-1 items-center gap-2.5 rounded-xl border border-line bg-surface px-3 py-2 text-left active:bg-raised',
-                player.alive ? '' : 'opacity-50',
+                alive ? '' : 'opacity-50',
               ].join(' ')}
             >
               <span className="w-5 shrink-0 text-sm text-muted tabular-nums">
@@ -62,16 +64,16 @@ export function PlayerList({ session, game, script, onTagPlayer }: Props) {
             </button>
 
             <button
-              onClick={() => toggleAlive(player.id)}
-              aria-label={player.alive ? `Mark ${player.name} dead` : `Mark ${player.name} alive`}
+              onClick={() => onEditLife(player.id)}
+              aria-label={alive ? `Record death for ${player.name}` : `Record revival for ${player.name}`}
               className={[
                 'w-14 shrink-0 rounded-xl border text-xs',
-                player.alive
+                alive
                   ? 'border-line bg-surface text-muted active:bg-raised'
                   : 'border-evil/40 bg-evil/15 text-evil',
               ].join(' ')}
             >
-              {player.alive ? 'alive' : 'dead'}
+              {alive ? 'alive' : 'dead'}
             </button>
           </li>
         )

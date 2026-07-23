@@ -72,6 +72,8 @@ type Assertion = {
   targets: PlayerId[]     // UI writes 1 for now; array is load-bearing (see below)
   roles?: RoleId[]        // empty for vote/nominate
   note?: string           // the quote / evidence
+  hidden?: boolean        // struck: reversible, excluded from ALL projections
+  pinned?: boolean        // starred: floats to top of its phase group in the log
 }
 
 type RoleTag = {          // append-only; UI shows the latest *entry* per player
@@ -82,10 +84,47 @@ type RoleTag = {          // append-only; UI shows the latest *entry* per player
   phase: 'day' | 'night'
 }
 
-type PlayerState = { id: PlayerId; seat: number; name: string; alive: boolean }
+type GameEvent = {         // things that happened, as opposed to things said
+  id: string
+  round: number
+  phase: 'day' | 'night'
+  label: string            // free text: "Executed", "Died at night", "Quest failed"
+  subjects: PlayerId[]     // who it touched
+  setsAlive?: boolean      // undefined = no life effect; false = dies; true = revives
+  note?: string
+  hidden?: boolean         // same strike/pin semantics as Assertion
+  pinned?: boolean
+}
+
+type PlayerState = { id: PlayerId; seat: number; name: string }  // no `alive` — derived
 ```
 
 Notes on why it looks like this:
+
+- **`GameEvent` is deliberately generic — a free-text label plus subjects, no
+  per-game event vocabulary in config.** Covers BotC deaths, Avalon quests, ability
+  triggers and games we haven't modelled. The only structured consequence is
+  `setsAlive` on the *event instance* (not a config flag), which is what lets
+  resurrection be `setsAlive: true` and keeps games from needing a kill-vocabulary.
+- **Aliveness is derived from events, never stored** (`projections.ts`): the latest
+  life-affecting event per player wins, so the timeline shows true historical
+  alive/dead and deleting/striking a death reverts it with no state to unwind. The
+  invariant that makes this hold: struck or deleted entries count in *no* projection.
+- **The timeline is a projection, not a mode.** `projectSession(session, rank)`
+  returns a session slice with only what happened at or before a phase (`rankOf`
+  orders phases: Night 1 < Day 1 < …). Rendering tabs receive that slice and stay
+  unaware of time; entry sheets stamp new entries into the *viewed* phase (so you
+  can log into a past night). The game clock only moves forward (Timeline's `+`);
+  stepping back is offered only to undo an empty just-added phase.
+- **Nomination/vote roll-up is config-driven, not BotC-hardcoded.** The nominate
+  relation has `collectsVotesAs: 'vote'`; votes carry `edge: false` and `internal:
+  true` (so they draw no arrow and aren't a standalone picker choice). A nomination's
+  votes are *derived* — vote entries targeting the same nominee that phase — and roll
+  up under it in the log/focus rather than cluttering the diagram.
+- **Gotcha — `opacity` (and transform/filter) creates a stacking context.** A struck
+  row was dimmed with `opacity-45`, which trapped the entry menu's fixed popover
+  below the bottom bar's z-index. Dim *content*, never a container that holds a
+  portal-less overlay. Bit us once; watch for it.
 
 - **`targets` is an array** even though v1 writes one element. BotC info roles break
   a strict triple immediately — Empath says "1 evil between P2 and P4", Fortune
@@ -115,8 +154,10 @@ Notes on why it looks like this:
 
 ## Rendering rules
 
-- Diagram renders 4 relations only: vouch (green), accuse (red), nominate/vote
-  (neutral-bold). Info never draws an edge.
+- Diagram draws edges for `edge: true` relations only: vouch (green), accuse (red),
+  nominate (neutral). Info and vote never draw an edge — info renders on the token,
+  votes roll up under their nomination. Outsiders are blue, distinct from townsfolk
+  green (a `blue` tone; team colour will move to config later).
 - Info renders beside the **speaker's** token. In focus mode, show every assertion
   *involving* the tapped player — as speaker or as target. One filter, no extra data.
 - Role guesses render as N equal wedges on the token. ~2–3 are legible at 15 players
@@ -130,14 +171,22 @@ Notes on why it looks like this:
 
 Ship one stage at a time; do not build a large prototype in one go.
 
-1. **Config load, session setup, assertion log, relationship arrows** ← current
-2. Timeline scrubber over the log; round diff highlight
-3. Subjective reads layer (`myRead` as node attribute), alive/dead history
-4. History and review: end-of-game truth entry, post-mortem comparing reads to
-   reality, session archive, multi-session game-night grouping
-5. Second game (Werewolf or Deception) — the real test of the config abstraction.
+1. **Done** — Config load, session setup, assertion log, relationship arrows, focus mode.
+2. **Done** — Timeline scrubber over the log, round-diff highlight, and a generic
+   `GameEvent` log (deaths and anything else). Alive/dead is *derived* from events
+   (`setsAlive` per event, latest wins), never stored — see `projections.ts`.
+   Alive/dead history was pulled forward to here rather than stage 3.
+3. **Done (3.5)** — nomination/vote roll-up (votes stop drawing their own arrows;
+   they group under the nomination, shown on tap), edit an entry, strikethrough
+   (`hidden` on assertions/events, reversible, excluded from *all* projections),
+   pin/star (floats to top of its phase group). Entry actions live behind a ⋯ menu.
+4. Subjective reads layer (`myRead` as node attribute) — the suspicion primitive.
+   Expected to need a refactor.
+5. History and review: end-of-game truth entry, post-mortem comparing reads to
+   reality, session archive, multi-session game-night grouping.
+6. Second game (Werewolf or Deception) — the real test of the config abstraction.
    Expect to refactor.
-6. Accounts, cloud sync, sharing
+7. Accounts, cloud sync, sharing.
 
 Explicitly out of scope: multi-player shared sessions (turns a note-taking need
 into a distributed-consistency problem), Storyteller/moderator features (crowded
