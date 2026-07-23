@@ -59,8 +59,9 @@ export function RoleTagSheet({ playerId, onClose, session, game, script, at }: P
       }
     >
       <p className="mb-3 text-xs text-muted">
-        Pick every role still in play for them. This is your read — what they{' '}
-        <em>claimed</em> out loud belongs in the log instead.
+        Pick every role still in play for them. This is your <em>guess</em> — what
+        they <em>claimed</em> out loud belongs in the log instead. Your good/evil
+        read lives on the diagram.
       </p>
       <RolePicker
         game={game}

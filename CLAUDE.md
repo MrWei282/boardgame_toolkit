@@ -74,12 +74,21 @@ type Assertion = {
   note?: string           // the quote / evidence
   hidden?: boolean        // struck: reversible, excluded from ALL projections
   pinned?: boolean        // starred: floats to top of its phase group in the log
+  parentId?: string       // vote → its nomination; the roll-up matches on this
 }
 
 type RoleTag = {          // append-only; UI shows the latest *entry* per player
   id: string
   playerId: PlayerId
   roleIds: RoleId[]       // simultaneous guesses, equal weight, no priority order
+  round: number
+  phase: 'day' | 'night'
+}
+
+type ReadTag = {          // my alignment read; append-only, latest entry wins
+  id: string
+  playerId: PlayerId
+  lean: number            // -2..+2; sign = evil/good, magnitude = confidence, 0 = none
   round: number
   phase: 'day' | 'night'
 }
@@ -118,9 +127,13 @@ Notes on why it looks like this:
   stepping back is offered only to undo an empty just-added phase.
 - **Nomination/vote roll-up is config-driven, not BotC-hardcoded.** The nominate
   relation has `collectsVotesAs: 'vote'`; votes carry `edge: false` and `internal:
-  true` (so they draw no arrow and aren't a standalone picker choice). A nomination's
-  votes are *derived* — vote entries targeting the same nominee that phase — and roll
-  up under it in the log/focus rather than cluttering the diagram.
+  true` (so they draw no arrow and aren't a standalone picker choice). Each vote
+  points at its nomination via `parentId` and the log rolls up on that. This
+  *replaced* an earlier heuristic (votes matched by same-nominee-same-phase), which
+  silently pooled votes across two nominations of one nominee in a phase — a
+  re-nomination duplicated the count. A vote can't be tied to a nomination without
+  the link, so `parentId` is load-bearing, not speculative. `storage.ts` v3 backfills
+  it on old votes (best-effort; that historical case is exactly the ambiguous one).
 - **Gotcha — `opacity` (and transform/filter) creates a stacking context.** A struck
   row was dimmed with `opacity-45`, which trapped the entry menu's fixed popover
   below the bottom bar's z-index. Dim *content*, never a container that holds a
@@ -146,11 +159,18 @@ Notes on why it looks like this:
   "not vouch" / "not accuse" overlap into mush. Polarity returns later as a property
   of specific script-level *info* relations (Fortune Teller yes/no), not of every
   assertion.
-- **No suspicion primitive and no `unspoken` flag.** In v1 every assertion is a
-  public speech act, so the flag carries no information. Subjective reads arrive at
-  stage 4 as a *node attribute* (`myRead` on the player), not an edge — "I think P3
-  is evil" has no second endpoint, so drawing it as an arrow is a category error.
-  `speaker` stays a plain PlayerId; do not reserve a `'ME'` value yet.
+- **The suspicion primitive is `ReadTag` (stage 4, shipped), not an `unspoken`
+  flag or an edge.** A subjective read — "I think P3 is evil" — has no second
+  endpoint, so it is a node attribute, not an arrow. It is stored append-only with a
+  round stamp *exactly like `RoleTag`* (latest entry per player wins, projected by
+  rank) — conceptually a node attribute, implementationally a projected log, so the
+  stage-5 post-mortem gets read history for free. It's a single signed `lean` scalar,
+  deliberately: sign is the good↔evil axis (hardcoded for now — fine for BotC's binary
+  alignment; a multi-team game makes it config-driven), magnitude is confidence. A
+  read and a role *guess* are orthogonal channels and can disagree ("claims Empath,
+  I read them evil"). `speaker` stays a plain PlayerId; no `'ME'` value reserved.
+  `latestRead`/`currentRead` are near-twins of the RoleTag selectors — fold them
+  together only if a third append-only-latest tag appears.
 
 ## Rendering rules
 
@@ -162,6 +182,17 @@ Notes on why it looks like this:
   *involving* the tapped player — as speaker or as target. One filter, no extra data.
 - Role guesses render as N equal wedges on the token. ~2–3 are legible at 15 players
   on a phone; past that use a count badge with the full list in focus mode.
+- **The token has four distinct visual channels, deliberately kept apart** so a
+  player whose alignment/role swaps mid-game still reads cleanly: *wedge fills* =
+  role guesses (team-toned); *outer halo ring* = my alignment read (green/red by
+  sign, solid+thick for a sure ±2, dashed+thin for a leaning ±1 — a shape difference,
+  not a brightness one, so the colour stays vivid); *border* = focus/alive; *inner
+  chip* = the seat number, or 💀 when dead (death lives in the chip, the one non-role
+  zone, so it never covers the wedges — the seat number moves to the name label).
+- Repeated identical assertions collapse into one arrow with a `×N` badge at its
+  midpoint (`deriveEdges` counts by speaker|relation|target; `geometry` returns the
+  curve midpoint). Death is 💀 everywhere (token chip, focus pill, player list, entry
+  sheets) — no `†` marker.
 - Focus mode is the working view, not the full graph: tap a player, dim the rest,
   show only their edges. A full 15-player arrow graph is unreadable on a phone.
 - Dark by default. A bright phone at a dim table is an attention magnet.
@@ -180,8 +211,10 @@ Ship one stage at a time; do not build a large prototype in one go.
    they group under the nomination, shown on tap), edit an entry, strikethrough
    (`hidden` on assertions/events, reversible, excluded from *all* projections),
    pin/star (floats to top of its phase group). Entry actions live behind a ⋯ menu.
-4. Subjective reads layer (`myRead` as node attribute) — the suspicion primitive.
-   Expected to need a refactor.
+4. **Done** — Subjective reads (`ReadTag`, a signed `lean` node attribute drawn as a
+   token halo; inline `LeanControl`, no sheet). No refactor was needed — the RoleTag
+   pattern absorbed it. Shipped alongside a vote roll-up fix (`parentId`) and a token
+   visual pass (halo contrast, 💀 death in the chip, `×N` edge counts).
 5. History and review: end-of-game truth entry, post-mortem comparing reads to
    reality, session archive, multi-session game-night grouping.
 6. Second game (Werewolf or Deception) — the real test of the config abstraction.

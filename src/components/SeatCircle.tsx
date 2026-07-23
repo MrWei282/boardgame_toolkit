@@ -2,7 +2,8 @@ import { getRole, getTeam } from '../config'
 import { deriveEdges, neighboursOf } from '../diagram/edges'
 import { directedEdge, seatPoint, selfEdge, tokenWedge, type Pt } from '../diagram/geometry'
 import { isAlive } from '../projections'
-import { currentRoleIds } from '../store'
+import { haloStyle, leanTone } from '../read'
+import { currentRead, currentRoleIds } from '../store'
 import type { GameConfig, PlayerId, ScriptConfig, Session, Tone } from '../types'
 
 type Props = {
@@ -88,6 +89,33 @@ export function SeatCircle({
             <g key={e.key} style={{ opacity: dim }} pointerEvents="none">
               <path d={geo.path} fill="none" stroke={color} strokeWidth={2.25} strokeLinecap="round" />
               <polygon points={geo.arrow} fill={color} />
+              {/* Repeated identical assertions collapse into one arrow; the count
+                  badge at its midpoint shows how many times it was logged. */}
+              {e.count > 1 && (
+                <g>
+                  <rect
+                    x={geo.mid.x - tokenR * 0.5}
+                    y={geo.mid.y - tokenR * 0.32}
+                    width={tokenR}
+                    height={tokenR * 0.64}
+                    rx={tokenR * 0.32}
+                    fill="var(--color-surface)"
+                    stroke={color}
+                    strokeWidth={1}
+                  />
+                  <text
+                    x={geo.mid.x}
+                    y={geo.mid.y}
+                    textAnchor="middle"
+                    dominantBaseline="central"
+                    fontSize={tokenR * 0.45}
+                    fontWeight={600}
+                    fill="var(--color-ink)"
+                  >
+                    ×{e.count}
+                  </text>
+                </g>
+              )}
             </g>
           )
         })}
@@ -101,12 +129,30 @@ export function SeatCircle({
           const dim = lit ? (lit.has(p.id) ? 1 : 0.22) : 1
           const focused = focusedId === p.id
 
+          // My alignment read draws as a halo just outside the token — a separate
+          // channel from the role-guess wedges (fill) and the alive/focus border.
+          const lean = currentRead(session, p.id)
+          const halo = haloStyle(lean)
+
           return (
             <g
               key={p.id}
               style={{ opacity: dim, cursor: 'pointer' }}
               onClick={() => onTokenTap(p.id)}
             >
+              {halo && (
+                <circle
+                  cx={c.x}
+                  cy={c.y}
+                  r={tokenR + 4}
+                  fill="none"
+                  stroke={toneVar[leanTone(lean)]}
+                  strokeWidth={halo.width}
+                  strokeDasharray={halo.dash}
+                  opacity={halo.opacity}
+                />
+              )}
+
               {/* Role-guess wedges, or a plain fill when there is no guess. */}
               {roleIds.length > 0 ? (
                 roleIds.map((id, i) => {
@@ -130,22 +176,24 @@ export function SeatCircle({
                 cy={c.y}
                 r={tokenR}
                 fill="none"
-                stroke={focused ? 'var(--color-info)' : alive ? 'var(--color-line)' : 'var(--color-evil)'}
+                stroke={focused ? 'var(--color-info)' : alive ? 'var(--color-line)' : 'var(--color-muted)'}
                 strokeWidth={focused ? 3 : 2}
-                strokeDasharray={alive ? undefined : '4 3'}
               />
 
-              {/* Seat number on a chip so it stays legible over the wedges. */}
-              <circle cx={c.x} cy={c.y} r={tokenR * 0.44} fill="var(--color-surface)" />
+              {/* The inner chip is the token's one non-role zone, so death lives
+                  here where it never covers the role-guess wedges: a living seat
+                  shows its number, a dead one shows 💀 in its place. The number is
+                  not lost — it moves to the name label below. */}
+              <circle cx={c.x} cy={c.y} r={tokenR * 0.46} fill="var(--color-surface)" />
               <text
                 x={c.x}
                 y={c.y}
                 textAnchor="middle"
                 dominantBaseline="central"
-                fontSize={tokenR * 0.5}
+                fontSize={alive ? tokenR * 0.5 : tokenR * 0.6}
                 fill="var(--color-ink)"
               >
-                {p.seat + 1}
+                {alive ? p.seat + 1 : '💀'}
               </text>
 
               {/* Larger invisible hit area — tokens get small at 15 players. */}
@@ -162,6 +210,9 @@ export function SeatCircle({
           const anchor = label.x < CENTER.x - 4 ? 'end' : label.x > CENTER.x + 4 ? 'start' : 'middle'
           const dim = lit ? (lit.has(p.id) ? 1 : 0.22) : 1
           const alive = isAlive(session, p.id)
+          // A dead token shows 💀 where its number was, so carry the seat number
+          // here instead. Living labels are just the name.
+          const shortName = p.name.length > 8 ? p.name.slice(0, 7) + '…' : p.name
           return (
             <text
               key={p.id}
@@ -169,12 +220,12 @@ export function SeatCircle({
               y={label.y}
               textAnchor={anchor}
               dominantBaseline="central"
-              fontSize={11}
+              fontSize={12.5}
               fill={alive ? 'var(--color-ink)' : 'var(--color-muted)'}
               textDecoration={alive ? undefined : 'line-through'}
               style={{ opacity: dim }}
             >
-              {p.name.length > 8 ? p.name.slice(0, 7) + '…' : p.name}
+              {alive ? shortName : `${p.seat + 1} ${shortName}`}
             </text>
           )
         })}

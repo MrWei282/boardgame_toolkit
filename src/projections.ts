@@ -58,5 +58,6 @@ export function projectSession(session: Session, atRank: number): Session {
     assertions: session.assertions.filter((a) => rankOf(a.round, a.phase) <= atRank),
     events: session.events.filter((e) => rankOf(e.round, e.phase) <= atRank),
     roleTags: session.roleTags.filter((t) => rankOf(t.round, t.phase) <= atRank),
+    reads: session.reads.filter((r) => rankOf(r.round, r.phase) <= atRank),
   }
 }

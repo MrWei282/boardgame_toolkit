@@ -91,7 +91,13 @@ export function GameScreen({ session }: { session: Session }) {
         {/* Bottom padding clears the sticky log buttons. */}
         <main className="mt-3 pb-32">
           {tab === 'diagram' && (
-            <DiagramView session={view} game={game} script={script} onTagPlayer={setTaggingPlayer} />
+            <DiagramView
+              session={view}
+              game={game}
+              script={script}
+              onTagPlayer={setTaggingPlayer}
+              at={viewPhase}
+            />
           )}
           {tab === 'players' && (
             <PlayerList
@@ -100,6 +106,7 @@ export function GameScreen({ session }: { session: Session }) {
               script={script}
               onTagPlayer={setTaggingPlayer}
               onEditLife={openEventFor}
+              at={viewPhase}
             />
           )}
           {tab === 'log' && (
@@ -117,6 +124,9 @@ export function GameScreen({ session }: { session: Session }) {
 
       <div className="fixed inset-x-0 bottom-0 z-30 border-t border-line bg-bg/95 px-3 py-3 pb-[max(0.75rem,env(safe-area-inset-bottom))] backdrop-blur">
         <div className="mx-auto flex max-w-md gap-2">
+          {/* Two equally-weighted entry points — same treatment so neither reads
+              as the primary and the other as secondary; the labels carry the
+              said-vs-happened distinction. */}
           <button
             onClick={() => setSaid({ editing: null })}
             className="flex-1 rounded-xl bg-info py-3.5 font-semibold text-bg active:opacity-80"
@@ -125,7 +135,7 @@ export function GameScreen({ session }: { session: Session }) {
           </button>
           <button
             onClick={() => openEventFor(null)}
-            className="flex-1 rounded-xl border border-line bg-raised py-3.5 font-semibold text-ink active:bg-line"
+            className="flex-1 rounded-xl bg-info py-3.5 font-semibold text-bg active:opacity-80"
           >
             + What happened
           </button>

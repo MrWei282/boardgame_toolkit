@@ -31,6 +31,15 @@ export type Assertion = {
   hidden?: boolean
   /** Starred: floats to the top of its phase group in the log. */
   pinned?: boolean
+  /**
+   * The assertion this one rolls up under — set on votes to point at their
+   * nomination. Load-bearing: without it a vote can only be matched to a
+   * nomination by (nominee, phase), which mixes up two nominations of the same
+   * nominee in one phase (a re-nomination duplicates the votes). Generic rather
+   * than a `nominationId` because the roll-up itself is config-driven (a relation's
+   * `collectsVotesAs`), not BotC-specific.
+   */
+  parentId?: string
   createdAt: number
 }
 
@@ -80,6 +89,29 @@ export type GameEvent = {
   createdAt: number
 }
 
+/**
+ * My subjective alignment read on a player — the suspicion primitive. A gut call
+ * on where they sit, distinct from a role *guess* (that's RoleTag): "claims Empath
+ * but I read them evil" is two channels, not one. Signed so a single scalar carries
+ * both sides:
+ *   lean < 0 → evil-leaning, lean > 0 → good-leaning, 0 → neutral / no read
+ *   magnitude is confidence (±1 a hunch, ±2 as sure as a read gets)
+ *
+ * A node attribute conceptually, but stored append-only with a round stamp exactly
+ * like RoleTag — the latest entry per player wins, and the history is what the
+ * stage-5 post-mortem (reads vs. reality) reads for free. The good↔evil axis is
+ * hardcoded for now (fine for BotC's binary alignment); a multi-team game can make
+ * it config-driven later.
+ */
+export type ReadTag = {
+  id: string
+  playerId: PlayerId
+  lean: number
+  round: number
+  phase: Phase
+  createdAt: number
+}
+
 export type PlayerState = {
   id: PlayerId
   /** Physical seat order. Game-critical in BotC — adjacency drives abilities. */
@@ -98,6 +130,7 @@ export type Session = {
   players: PlayerState[]
   assertions: Assertion[]
   roleTags: RoleTag[]
+  reads: ReadTag[]
   events: GameEvent[]
 }
 

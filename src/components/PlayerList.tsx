@@ -1,8 +1,9 @@
 import { getRole, getTeam } from '../config'
 import { isAlive } from '../projections'
-import { currentRoleIds } from '../store'
+import { currentRead, currentRoleIds, useStore } from '../store'
 import { toneChip } from '../tone'
-import type { GameConfig, PlayerId, ScriptConfig, Session } from '../types'
+import type { GameConfig, Phase, PlayerId, ScriptConfig, Session } from '../types'
+import { LeanControl } from './LeanControl'
 
 type Props = {
   session: Session
@@ -11,21 +12,30 @@ type Props = {
   onTagPlayer: (id: PlayerId) => void
   /** Open the event sheet to record a death/revival for this player. */
   onEditLife: (id: PlayerId) => void
+  /** Phase to stamp a new read into — the phase currently in view. */
+  at: { round: number; phase: Phase }
 }
 
-export function PlayerList({ session, game, script, onTagPlayer, onEditLife }: Props) {
+export function PlayerList({ session, game, script, onTagPlayer, onEditLife, at }: Props) {
+  const setRead = useStore((s) => s.setRead)
   return (
+    <>
+    <p className="mb-2 px-1 text-[11px] text-muted">
+      My read: <span className="text-evil">certain evil</span> ←→{' '}
+      <span className="text-good">certain good</span>
+    </p>
     <ul className="space-y-1.5">
       {session.players.map((player) => {
         const roleIds = currentRoleIds(session, player.id)
         const alive = isAlive(session, player.id)
 
         return (
-          <li key={player.id} className="flex items-stretch gap-1.5">
+          <li key={player.id} className="overflow-hidden rounded-xl border border-line bg-surface">
+          <div className="flex items-stretch">
             <button
               onClick={() => onTagPlayer(player.id)}
               className={[
-                'flex min-h-14 flex-1 items-center gap-2.5 rounded-xl border border-line bg-surface px-3 py-2 text-left active:bg-raised',
+                'flex min-h-14 flex-1 items-center gap-2.5 px-3 py-2 text-left active:bg-raised',
                 alive ? '' : 'opacity-50',
               ].join(' ')}
             >
@@ -67,17 +77,35 @@ export function PlayerList({ session, game, script, onTagPlayer, onEditLife }: P
               onClick={() => onEditLife(player.id)}
               aria-label={alive ? `Record death for ${player.name}` : `Record revival for ${player.name}`}
               className={[
-                'w-14 shrink-0 rounded-xl border text-xs',
-                alive
-                  ? 'border-line bg-surface text-muted active:bg-raised'
-                  : 'border-evil/40 bg-evil/15 text-evil',
+                'flex w-14 shrink-0 flex-col items-center justify-center gap-0.5 border-l border-line text-xs',
+                alive ? 'text-muted active:bg-raised' : 'bg-evil/15 text-evil',
               ].join(' ')}
             >
-              {alive ? 'alive' : 'dead'}
+              {alive ? (
+                'alive'
+              ) : (
+                <>
+                  <span className="text-base leading-none">💀</span>
+                  <span>dead</span>
+                </>
+              )}
             </button>
+          </div>
+
+          {/* My alignment read — inline so a hunch is one tap, no sheet. */}
+          <div className="flex items-center gap-2 border-t border-line px-3 py-2">
+            <span className="shrink-0 text-[11px] text-muted">read</span>
+            <div className="flex-1">
+              <LeanControl
+                value={currentRead(session, player.id)}
+                onChange={(lean) => setRead(player.id, lean, at)}
+              />
+            </div>
+          </div>
           </li>
         )
       })}
     </ul>
+    </>
   )
 }

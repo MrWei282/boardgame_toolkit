@@ -2,11 +2,12 @@ import { useState } from 'react'
 import { getRole, getTeam } from '../config'
 import { assertionParts } from '../describe'
 import { isAlive } from '../projections'
-import { currentRoleIds, useStore } from '../store'
+import { currentRead, currentRoleIds, useStore } from '../store'
 import { toneChip, toneText } from '../tone'
-import type { GameConfig, GameEvent, PlayerId, ScriptConfig, Session } from '../types'
+import type { GameConfig, GameEvent, Phase, PlayerId, ScriptConfig, Session } from '../types'
 import { AssertionText } from './AssertionText'
 import { DeleteButton } from './DeleteButton'
+import { LeanControl } from './LeanControl'
 import { SeatCircle } from './SeatCircle'
 
 type Props = {
@@ -14,11 +15,14 @@ type Props = {
   game: GameConfig
   script: ScriptConfig
   onTagPlayer: (id: PlayerId) => void
+  /** Phase to stamp a new read into — the phase currently in view. */
+  at: { round: number; phase: Phase }
 }
 
-export function DiagramView({ session, game, script, onTagPlayer }: Props) {
+export function DiagramView({ session, game, script, onTagPlayer, at }: Props) {
   const deleteAssertion = useStore((s) => s.deleteAssertion)
   const deleteEvent = useStore((s) => s.deleteEvent)
+  const setRead = useStore((s) => s.setRead)
 
   // Focus mode is the working view: tap a token to isolate it, tap empty space
   // to clear. A full 15-player arrow graph is unreadable on a phone.
@@ -86,7 +90,11 @@ export function DiagramView({ session, game, script, onTagPlayer }: Props) {
           <div className="flex items-center justify-between">
             <div className="text-sm font-semibold">
               {focused.name}
-              {!isAlive(session, focused.id) && <span className="ml-2 text-xs text-evil">†dead</span>}
+              {!isAlive(session, focused.id) && (
+                <span className="ml-2 rounded bg-evil/15 px-1.5 py-0.5 text-[11px] font-medium text-evil">
+                  💀 Dead
+                </span>
+              )}
             </div>
             <button
               onClick={() => onTagPlayer(focused.id)}
@@ -121,10 +129,27 @@ export function DiagramView({ session, game, script, onTagPlayer }: Props) {
             )}
           </div>
 
+          {/* My alignment read — a gut call, distinct from the role guess above. */}
+          <div className="mt-2.5">
+            <div className="flex items-center gap-2">
+              <span className="shrink-0 text-[11px] text-muted">My read</span>
+              <div className="flex-1">
+                <LeanControl
+                  value={currentRead(session, focused.id)}
+                  onChange={(lean) => setRead(focused.id, lean, at)}
+                  endpoints
+                />
+              </div>
+            </div>
+            <p className="mt-1 text-[10px] text-muted/70">
+              −− ++ certain · − + leaning · · no read
+            </p>
+          </div>
+
           {involving.length > 0 ? (
-            <ul className="mt-2 space-y-1">{involving.map((x) => x.node)}</ul>
+            <ul className="mt-2.5 space-y-1">{involving.map((x) => x.node)}</ul>
           ) : (
-            <p className="mt-2 text-xs text-muted">Nothing logged about them yet.</p>
+            <p className="mt-2.5 text-xs text-muted">Nothing logged about them yet.</p>
           )}
         </div>
       ) : (

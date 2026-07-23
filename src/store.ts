@@ -1,6 +1,6 @@
 import { create } from 'zustand'
 import { loadAll, saveAll, VERSION } from './storage'
-import type { Assertion, GameEvent, Phase, PlayerId, RoleId, RoleTag, Session } from './types'
+import type { Assertion, GameEvent, Phase, PlayerId, ReadTag, RoleId, RoleTag, Session } from './types'
 import { uid } from './uid'
 
 type NewAssertion = {
@@ -39,6 +39,8 @@ type Store = {
   updateAssertion: (id: string, patch: Partial<Assertion>) => void
   deleteAssertion: (id: string) => void
   setRoleTag: (playerId: PlayerId, roleIds: RoleId[], at?: PhaseRef) => void
+  /** Stamp my alignment read on a player (append-only, latest wins). 0 clears it. */
+  setRead: (playerId: PlayerId, lean: number, at?: PhaseRef) => void
 
   /** Log a nomination plus a vote per voter, in one entry. */
   addNomination: (
@@ -94,6 +96,7 @@ export const useStore = create<Store>()((set, get) => {
         })),
         assertions: [],
         roleTags: [],
+        reads: [],
         events: [],
       }
       const sessions = { ...get().sessions, [session.id]: session }
@@ -175,8 +178,10 @@ export const useStore = create<Store>()((set, get) => {
           note: input.note?.trim() || undefined,
           createdAt: base,
         }
-        // One vote assertion per voter, all targeting the nominee. They render
-        // rolled up under the nomination rather than as their own arrows.
+        // One vote assertion per voter, all targeting the nominee and linked to
+        // this nomination by parentId. They render rolled up under the nomination
+        // rather than as their own arrows. The parentId is what keeps two
+        // nominations of the same nominee in one phase from sharing votes.
         const votes: Assertion[] = input.voters.map((voter, i) => ({
           id: uid(),
           round,
@@ -184,6 +189,7 @@ export const useStore = create<Store>()((set, get) => {
           speaker: voter,
           relation: input.voteRelation,
           targets: [input.nominee],
+          parentId: nomination.id,
           createdAt: base + 1 + i,
         }))
         return { ...s, assertions: [...s.assertions, nomination, ...votes] }
@@ -203,6 +209,21 @@ export const useStore = create<Store>()((set, get) => {
           createdAt: Date.now(),
         }
         return { ...s, roleTags: [...s.roleTags, tag] }
+      }),
+
+    setRead: (playerId, lean, at) =>
+      updateSession((s) => {
+        // Append-only like roleTags: changing my read writes a new entry rather
+        // than mutating the old one, so the timeline shows what I thought back then.
+        const read: ReadTag = {
+          id: uid(),
+          playerId,
+          lean,
+          round: at?.round ?? s.round,
+          phase: at?.phase ?? s.phase,
+          createdAt: Date.now(),
+        }
+        return { ...s, reads: [...s.reads, read] }
       }),
 
     addEvent: (input, at) =>
@@ -254,6 +275,22 @@ export function latestRoleTag(session: Session, playerId: PlayerId): RoleTag | u
 
 export function currentRoleIds(session: Session, playerId: PlayerId): RoleId[] {
   return latestRoleTag(session, playerId)?.roleIds ?? []
+}
+
+// Near-twin of latestRoleTag/currentRoleIds — fold the two together if a third
+// append-only-latest-wins tag ever appears; not worth a shared abstraction for two.
+export function latestRead(session: Session, playerId: PlayerId): ReadTag | undefined {
+  let latest: ReadTag | undefined
+  for (const r of session.reads) {
+    if (r.playerId !== playerId) continue
+    if (!latest || r.createdAt >= latest.createdAt) latest = r
+  }
+  return latest
+}
+
+/** My current alignment read on a player: -2..+2, 0 when unread. */
+export function currentRead(session: Session, playerId: PlayerId): number {
+  return latestRead(session, playerId)?.lean ?? 0
 }
 
 export function phaseLabel(round: number, phase: Phase): string {

@@ -28,25 +28,21 @@ export function LogView({ session, game, script, highlightRank, onEditAssertion,
 
   const [expanded, setExpanded] = useState<Set<string>>(new Set())
 
-  // Roll votes up under their nomination: a nomination's votes are the vote
-  // entries targeting the same nominee in the same phase. Those are hidden from
-  // the top level and shown on the nomination instead.
+  // Roll votes up under their nomination: a vote points at its nomination by
+  // parentId, so a re-nomination of the same nominee keeps its own votes instead
+  // of pooling them by nominee+phase. Rolled-up votes are hidden from the top
+  // level and shown on the nomination instead.
   const nominationRel = game.relations.find((r) => r.collectsVotesAs)
   const voteRelId = nominationRel?.collectsVotesAs
   const votesByNomination = new Map<string, Assertion[]>()
   const rolledVoteIds = new Set<string>()
   if (nominationRel && voteRelId) {
-    for (const nom of session.assertions.filter((a) => a.relation === nominationRel.id)) {
-      const nominee = nom.targets[0]
-      const votes = session.assertions.filter(
-        (v) =>
-          v.relation === voteRelId &&
-          v.targets[0] === nominee &&
-          v.round === nom.round &&
-          v.phase === nom.phase,
-      )
-      votesByNomination.set(nom.id, votes)
-      votes.forEach((v) => rolledVoteIds.add(v.id))
+    for (const v of session.assertions) {
+      if (v.relation !== voteRelId || !v.parentId) continue
+      const group = votesByNomination.get(v.parentId)
+      if (group) group.push(v)
+      else votesByNomination.set(v.parentId, [v])
+      rolledVoteIds.add(v.id)
     }
   }
 

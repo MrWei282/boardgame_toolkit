@@ -38,6 +38,8 @@ export type EdgeGeometry = {
   path: string
   /** SVG points for a triangular arrowhead at the target end. */
   arrow: string
+  /** Point on the curve at t=0.5, where a repeat-count badge sits. */
+  mid: Pt
 }
 
 export type EdgeOpts = {
@@ -70,7 +72,9 @@ export function directedEdge(from: Pt, to: Pt, opts: EdgeOpts): EdgeGeometry {
 
   const path = `M ${r(start.x)} ${r(start.y)} Q ${r(control.x)} ${r(control.y)} ${r(end.x)} ${r(end.y)}`
   const arrow = arrowHead(end, endDir, opts.arrow)
-  return { path, arrow }
+  // Quadratic bezier at t=0.5: ¼·start + ½·control + ¼·end.
+  const labelMid = add(scale(add(start, end), 0.25), scale(control, 0.5))
+  return { path, arrow, mid: labelMid }
 }
 
 /**
@@ -92,7 +96,12 @@ export function selfEdge(at: Pt, center: Pt, opts: EdgeOpts): EdgeGeometry {
   const path = `M ${r(start.x)} ${r(start.y)} C ${r(c1.x)} ${r(c1.y)} ${r(c2.x)} ${r(c2.y)} ${r(end.x)} ${r(end.y)}`
   // Arrow enters the token pointing back inward.
   const arrow = arrowHead(end, scale(out, -1), opts.arrow)
-  return { path, arrow }
+  // Cubic bezier at t=0.5: ⅛·start + ⅜·c1 + ⅜·c2 + ⅛·end.
+  const mid = add(
+    add(scale(add(start, end), 0.125), scale(c1, 0.375)),
+    scale(c2, 0.375),
+  )
+  return { path, arrow, mid }
 }
 
 function arrowHead(tip: Pt, dir: Pt, size: number): string {

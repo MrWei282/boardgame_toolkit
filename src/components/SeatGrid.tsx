@@ -35,7 +35,7 @@ export function SeatGrid({ players, selected, onSelect, deadIds }: Props) {
           >
             <span className="text-[10px] text-muted">
               {p.seat + 1}
-              {dead ? ' · †dead' : ''}
+              {dead ? ' 💀' : ''}
             </span>
             <span
               className={[
