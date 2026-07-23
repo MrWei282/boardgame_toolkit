@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { assertionParts } from '../describe'
-import { rankOf } from '../projections'
+import { phaseFromRank, rankOf } from '../projections'
 import { phaseLabel, useStore } from '../store'
 import type { Assertion, GameConfig, GameEvent, ScriptConfig, Session } from '../types'
 import { AssertionText } from './AssertionText'
@@ -59,6 +59,8 @@ export function LogView({ session, game, script, highlightRank, onEditAssertion,
     ),
   ]
 
+  const nameOf = (id: string) => session.players.find((p) => p.id === id)?.name ?? '?'
+
   if (items.length === 0) {
     return (
       <p className="rounded-xl border border-dashed border-line px-4 py-8 text-center text-sm text-muted">
@@ -67,86 +69,109 @@ export function LogView({ session, game, script, highlightRank, onEditAssertion,
     )
   }
 
-  // Newest phase first; within a phase, pinned entries float to the top, then
-  // newest first.
-  items.sort((a, b) => b.rank - a.rank || Number(b.pinned) - Number(a.pinned) || b.at - a.at)
+  // Group by phase and render a section per phase from Night 1 up to the phase in
+  // view — including empty ones — so the log reads uniformly and never jumps a
+  // phase (e.g. a quiet Day 2 still shows between Night 2 and Night 3).
+  const FIRST = 2 // Night 1
+  const maxRank = Math.max(highlightRank ?? FIRST, ...items.map((i) => i.rank), FIRST)
+  const byRank = new Map<number, LogItem[]>()
+  for (const it of items) {
+    const arr = byRank.get(it.rank)
+    if (arr) arr.push(it)
+    else byRank.set(it.rank, [it])
+  }
+  // Within a phase, pinned entries float to the top, then newest first.
+  for (const arr of byRank.values()) {
+    arr.sort((a, b) => Number(b.pinned) - Number(a.pinned) || b.at - a.at)
+  }
+  const ranks: number[] = []
+  for (let r = maxRank; r >= FIRST; r--) ranks.push(r)
 
-  const nameOf = (id: string) => session.players.find((p) => p.id === id)?.name ?? '?'
+  function renderRow(item: LogItem, highlight: boolean) {
+    const struck = !!item.data.hidden
+    return (
+      <li key={item.data.id}>
+        <div
+          className={[
+            'flex items-start gap-2 rounded-xl border px-3 py-2.5',
+            highlight ? 'border-info/60 bg-info/5' : 'border-line bg-surface',
+          ].join(' ')}
+        >
+          {/* Dim the struck content only — not the row — so the entry menu it
+              contains is not trapped under a new stacking context (which would
+              drop its popover behind the fixed log buttons). */}
+          <div className={['min-w-0 flex-1', struck ? 'opacity-45' : ''].join(' ')}>
+            <div className={struck ? 'line-through decoration-muted' : ''}>
+              {item.kind === 'assertion' ? (
+                <AssertionRow
+                  assertion={item.data}
+                  session={session}
+                  game={game}
+                  script={script}
+                  pinned={item.pinned}
+                  votes={votesByNomination.get(item.data.id)}
+                  expanded={expanded.has(item.data.id)}
+                  onToggleExpand={() =>
+                    setExpanded((prev) => {
+                      const next = new Set(prev)
+                      if (next.has(item.data.id)) next.delete(item.data.id)
+                      else next.add(item.data.id)
+                      return next
+                    })
+                  }
+                  nameOf={nameOf}
+                />
+              ) : (
+                <EventRow event={item.data} pinned={item.pinned} nameOf={nameOf} />
+              )}
+            </div>
+          </div>
+
+          <EntryMenu
+            pinned={item.pinned}
+            hidden={struck}
+            onEdit={() =>
+              item.kind === 'assertion' ? onEditAssertion(item.data) : onEditEvent(item.data)
+            }
+            onTogglePin={() =>
+              item.kind === 'assertion'
+                ? updateAssertion(item.data.id, { pinned: !item.data.pinned })
+                : updateEvent(item.data.id, { pinned: !item.data.pinned })
+            }
+            onToggleStrike={() =>
+              item.kind === 'assertion'
+                ? updateAssertion(item.data.id, { hidden: !item.data.hidden })
+                : updateEvent(item.data.id, { hidden: !item.data.hidden })
+            }
+            onDelete={() =>
+              item.kind === 'assertion' ? deleteAssertion(item.data.id) : deleteEvent(item.data.id)
+            }
+          />
+        </div>
+      </li>
+    )
+  }
 
   return (
-    <ul className="space-y-1.5">
-      {items.map((item, i) => {
-        const prev = items[i - 1]
-        const startsPhase = !prev || prev.rank !== item.rank
-        const highlight = highlightRank !== undefined && item.rank === highlightRank
-        const struck = !!item.data.hidden
-        const { round, phase } = item.data
-
+    <div>
+      {ranks.map((rank) => {
+        const { round, phase } = phaseFromRank(rank)
+        const group = byRank.get(rank) ?? []
+        const highlight = highlightRank === rank
         return (
-          <li key={item.data.id}>
-            {startsPhase && (
-              <div className="mt-3 mb-1.5 text-[11px] tracking-wide text-muted uppercase">
-                {phaseLabel(round, phase)}
-              </div>
-            )}
-            <div
-              className={[
-                'flex items-start gap-2 rounded-xl border px-3 py-2.5',
-                highlight ? 'border-info/60 bg-info/5' : 'border-line bg-surface',
-                struck ? 'opacity-45' : '',
-              ].join(' ')}
-            >
-              <div className="min-w-0 flex-1">
-                <div className={struck ? 'line-through decoration-muted' : ''}>
-                  {item.kind === 'assertion' ? (
-                    <AssertionRow
-                      assertion={item.data}
-                      session={session}
-                      game={game}
-                      script={script}
-                      pinned={item.pinned}
-                      votes={votesByNomination.get(item.data.id)}
-                      expanded={expanded.has(item.data.id)}
-                      onToggleExpand={() =>
-                        setExpanded((prev) => {
-                          const next = new Set(prev)
-                          next.has(item.data.id) ? next.delete(item.data.id) : next.add(item.data.id)
-                          return next
-                        })
-                      }
-                      nameOf={nameOf}
-                    />
-                  ) : (
-                    <EventRow event={item.data} pinned={item.pinned} nameOf={nameOf} />
-                  )}
-                </div>
-              </div>
-
-              <EntryMenu
-                pinned={item.pinned}
-                hidden={struck}
-                onEdit={() =>
-                  item.kind === 'assertion' ? onEditAssertion(item.data) : onEditEvent(item.data)
-                }
-                onTogglePin={() =>
-                  item.kind === 'assertion'
-                    ? updateAssertion(item.data.id, { pinned: !item.data.pinned })
-                    : updateEvent(item.data.id, { pinned: !item.data.pinned })
-                }
-                onToggleStrike={() =>
-                  item.kind === 'assertion'
-                    ? updateAssertion(item.data.id, { hidden: !item.data.hidden })
-                    : updateEvent(item.data.id, { hidden: !item.data.hidden })
-                }
-                onDelete={() =>
-                  item.kind === 'assertion' ? deleteAssertion(item.data.id) : deleteEvent(item.data.id)
-                }
-              />
+          <section key={rank} className="mt-3 first:mt-0">
+            <div className="mb-1.5 text-[11px] tracking-wide text-muted uppercase">
+              {phaseLabel(round, phase)}
             </div>
-          </li>
+            {group.length > 0 ? (
+              <ul className="space-y-1.5">{group.map((item) => renderRow(item, highlight))}</ul>
+            ) : (
+              <p className="pl-1 text-xs text-muted/40">—</p>
+            )}
+          </section>
         )
       })}
-    </ul>
+    </div>
   )
 }
 

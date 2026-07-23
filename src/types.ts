@@ -139,6 +139,12 @@ export type RelationConfig = {
    * arrows — nominations/votes exist across games, so this stays config-driven.
    */
   collectsVotesAs?: RelationId
+  /**
+   * Not offered as a standalone choice in the entry sheet — created only through
+   * another flow (votes come from the nomination's voter list). Still a real
+   * relation for rendering and roll-up.
+   */
+  internal?: boolean
 }
 
 export type TeamConfig = {

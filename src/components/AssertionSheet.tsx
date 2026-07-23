@@ -130,7 +130,9 @@ export function AssertionSheet({ open, onClose, session, game, script, at, editi
         <section>
           <SectionLabel n={2}>What they did</SectionLabel>
           <div className="flex flex-wrap gap-2">
-            {game.relations.map((r) => (
+            {game.relations
+              .filter((r) => !r.internal || r.id === editing?.relation)
+              .map((r) => (
               <button
                 key={r.id}
                 onClick={() => pickRelation(r.id)}

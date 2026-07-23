@@ -46,7 +46,8 @@
       "targets": "one",
       "roles": "none",
       "edge": false,
-      "tone": "neutral"
+      "tone": "neutral",
+      "internal": true
     },
     {
       "id": "info",
