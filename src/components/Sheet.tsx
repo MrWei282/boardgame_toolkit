@@ -1,4 +1,5 @@
 import type { ReactNode } from 'react'
+import { createPortal } from 'react-dom'
 
 type Props = {
   open: boolean
@@ -11,7 +12,12 @@ type Props = {
 export function Sheet({ open, title, onClose, children, footer }: Props) {
   if (!open) return null
 
-  return (
+  // Portal to <body> so the `fixed` overlay is viewport-relative regardless of
+  // where it's rendered. Ancestors with backdrop-filter/transform/opacity (e.g.
+  // the RoundBar's backdrop-blur) become the containing block for fixed children
+  // and would otherwise crop the sheet to that ancestor's box — the stacking-
+  // context gotcha in CLAUDE.md.
+  return createPortal(
     <div
       className="fixed inset-0 z-50 flex flex-col justify-end bg-black/60"
       onClick={onClose}
@@ -38,6 +44,7 @@ export function Sheet({ open, title, onClose, children, footer }: Props) {
           </div>
         )}
       </div>
-    </div>
+    </div>,
+    document.body,
   )
 }
