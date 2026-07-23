@@ -120,6 +120,22 @@ export type PlayerState = {
   // No `alive` field — a player's life is derived from GameEvents (see projections.ts).
 }
 
+/** Which side a player actually ended on. Binary for BotC/Avalon/Werewolf. */
+export type Alignment = 'good' | 'evil'
+
+/**
+ * Ground truth for one player at game end — what they *actually* were, entered in
+ * the post-game review. `alignment` is stored explicitly (not derived from the
+ * role) because it can diverge from the role's default team: a good player can be
+ * turned evil, a Recluse registers as evil, etc. `roleId` is optional — the
+ * alignment read is the core comparison; the exact role may be unknown.
+ */
+export type Reveal = {
+  playerId: PlayerId
+  roleId?: RoleId
+  alignment: Alignment
+}
+
 export type Session = {
   id: string
   createdAt: number
@@ -135,6 +151,8 @@ export type Session = {
   roleTags: RoleTag[]
   reads: ReadTag[]
   events: GameEvent[]
+  /** End-of-game ground truth, entered in the review. Absent until then. */
+  truth?: Reveal[]
 }
 
 // --- config ------------------------------------------------------------------

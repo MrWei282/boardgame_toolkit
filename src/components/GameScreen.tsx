@@ -1,4 +1,4 @@
-import { useState, type ReactNode } from 'react'
+import { useEffect, useState, type ReactNode } from 'react'
 import { getGame, getScript } from '../config'
 import { aliveCount, phaseFromRank, projectSession, rankOf } from '../projections'
 import { useStore } from '../store'
@@ -8,11 +8,12 @@ import { DiagramView } from './DiagramView'
 import { EventSheet } from './EventSheet'
 import { LogView } from './LogView'
 import { PlayerList } from './PlayerList'
+import { ReviewTab } from './ReviewTab'
 import { RoleTagSheet } from './RoleTagSheet'
 import { RoundBar } from './RoundBar'
 import { Timeline } from './Timeline'
 
-type Tab = 'diagram' | 'players' | 'log'
+type Tab = 'diagram' | 'players' | 'log' | 'review'
 
 export function GameScreen({ session }: { session: Session }) {
   const game = getGame(session.gameId)
@@ -22,6 +23,11 @@ export function GameScreen({ session }: { session: Session }) {
   const prevPhase = useStore((s) => s.prevPhase)
 
   const [tab, setTab] = useState<Tab>('diagram')
+  // Ending a game (or opening a finished one) drops you into the review.
+  const ended = session.endedAt !== undefined
+  useEffect(() => {
+    if (ended) setTab('review')
+  }, [ended])
   // null = closed. Otherwise the sheet is open, editing an entry or creating one.
   const [said, setSaid] = useState<{ editing: Assertion | null } | null>(null)
   const [happened, setHappened] = useState<{ editing: GameEvent | null; preset: PlayerId | null } | null>(null)
@@ -62,7 +68,7 @@ export function GameScreen({ session }: { session: Session }) {
       />
 
       <div className="mx-auto max-w-md px-3">
-        <div className="mt-3 grid grid-cols-3 gap-1 rounded-xl border border-line bg-surface p-1">
+        <div className={`mt-3 grid ${ended ? 'grid-cols-4' : 'grid-cols-3'} gap-1 rounded-xl border border-line bg-surface p-1`}>
           <TabButton active={tab === 'diagram'} onClick={() => setTab('diagram')}>
             Diagram
           </TabButton>
@@ -72,22 +78,30 @@ export function GameScreen({ session }: { session: Session }) {
           <TabButton active={tab === 'log'} onClick={() => setTab('log')}>
             Log{session.assertions.length + session.events.length > 0 && ` · ${session.assertions.length + session.events.length}`}
           </TabButton>
+          {ended && (
+            <TabButton active={tab === 'review'} onClick={() => setTab('review')}>
+              Review
+            </TabButton>
+          )}
         </div>
 
-        <Timeline
-          currentRank={currentRank}
-          viewRank={viewRank}
-          onSelect={(r) => setPinnedRank(r >= currentRank ? null : r)}
-          onAdvance={() => {
-            nextPhase()
-            setPinnedRank(null)
-          }}
-          onRetract={() => {
-            prevPhase()
-            setPinnedRank(null)
-          }}
-          canRetract={canRetract}
-        />
+        {/* The timeline drives live play; the review is timeless, so hide it there. */}
+        {tab !== 'review' && (
+          <Timeline
+            currentRank={currentRank}
+            viewRank={viewRank}
+            onSelect={(r) => setPinnedRank(r >= currentRank ? null : r)}
+            onAdvance={() => {
+              nextPhase()
+              setPinnedRank(null)
+            }}
+            onRetract={() => {
+              prevPhase()
+              setPinnedRank(null)
+            }}
+            canRetract={canRetract}
+          />
+        )}
 
         {/* Bottom padding clears the sticky log buttons. */}
         <main className="mt-3 pb-32">
@@ -120,28 +134,33 @@ export function GameScreen({ session }: { session: Session }) {
               onEditEvent={(e) => setHappened({ editing: e, preset: null })}
             />
           )}
+          {/* The review reads the whole game, not the timeline slice. */}
+          {tab === 'review' && <ReviewTab session={session} game={game} script={script} />}
         </main>
       </div>
 
-      <div className="fixed inset-x-0 bottom-0 z-30 border-t border-line bg-bg/95 px-3 py-3 pb-[max(0.75rem,env(safe-area-inset-bottom))] backdrop-blur">
-        <div className="mx-auto flex max-w-md gap-2">
-          {/* Two equally-weighted entry points — same treatment so neither reads
-              as the primary and the other as secondary; the labels carry the
-              said-vs-happened distinction. */}
-          <button
-            onClick={() => setSaid({ editing: null })}
-            className="flex-1 rounded-xl bg-info py-3.5 font-semibold text-bg active:opacity-80"
-          >
-            + What was said
-          </button>
-          <button
-            onClick={() => openEventFor(null)}
-            className="flex-1 rounded-xl bg-info py-3.5 font-semibold text-bg active:opacity-80"
-          >
-            + What happened
-          </button>
+      {/* Logging entry points belong to play, not the post-game review. */}
+      {tab !== 'review' && (
+        <div className="fixed inset-x-0 bottom-0 z-30 border-t border-line bg-bg/95 px-3 py-3 pb-[max(0.75rem,env(safe-area-inset-bottom))] backdrop-blur">
+          <div className="mx-auto flex max-w-md gap-2">
+            {/* Two equally-weighted entry points — same treatment so neither reads
+                as the primary and the other as secondary; the labels carry the
+                said-vs-happened distinction. */}
+            <button
+              onClick={() => setSaid({ editing: null })}
+              className="flex-1 rounded-xl bg-info py-3.5 font-semibold text-bg active:opacity-80"
+            >
+              + What was said
+            </button>
+            <button
+              onClick={() => openEventFor(null)}
+              className="flex-1 rounded-xl bg-info py-3.5 font-semibold text-bg active:opacity-80"
+            >
+              + What happened
+            </button>
+          </div>
         </div>
-      </div>
+      )}
 
       <AssertionSheet
         open={said !== null}

@@ -106,6 +106,12 @@ type GameEvent = {         // things that happened, as opposed to things said
 }
 
 type PlayerState = { id: PlayerId; seat: number; name: string }  // no `alive` — derived
+
+type Reveal = {              // end-of-game ground truth, one per player
+  playerId: PlayerId
+  roleId?: RoleId            // actual role — optional; the alignment is the core input
+  alignment: 'good' | 'evil' // stored EXPLICITLY, not derived — swaps/misregistration
+}
 ```
 
 Notes on why it looks like this:
@@ -171,6 +177,14 @@ Notes on why it looks like this:
   I read them evil"). `speaker` stays a plain PlayerId; no `'ME'` value reserved.
   `latestRead`/`currentRead` are near-twins of the RoleTag selectors — fold them
   together only if a third append-only-latest tag appears.
+- **`Reveal.alignment` is stored, not derived from the role.** The post-mortem
+  scores my read (a good/evil lean) against what a player *actually ended as*, and
+  in BotC that can differ from the role's default team (a good player turned evil, a
+  Recluse registering evil). Deriving alignment from `roleId` would score exactly
+  those cases wrong. Picking a role only *prefills* the toggle (`roleAlignment` in
+  `review.ts`, a tone heuristic); the user can override. The post-mortem itself is a
+  pure projection — final `ReadTag`/`RoleTag` vs `truth`, no stored score
+  (`review.ts` holds the math so the entry and scorecard views agree).
 
 ## Rendering rules
 
@@ -215,8 +229,14 @@ Ship one stage at a time; do not build a large prototype in one go.
    token halo; inline `LeanControl`, no sheet). No refactor was needed — the RoleTag
    pattern absorbed it. Shipped alongside a vote roll-up fix (`parentId`) and a token
    visual pass (halo contrast, 💀 death in the chip, `×N` edge counts).
-5. History and review: end-of-game truth entry, post-mortem comparing reads to
-   reality, session archive, multi-session game-night grouping.
+5. **Done** — History and review. *5.0*: a home/games list (the default when no
+   game is open — sessions grouped by date into game-nights, ongoing/finished
+   badge, open/reopen/delete), and a game lifecycle (`Session.endedAt`, "End game"
+   in the RoundBar menu). This closed a real gap — a left/finished game used to be
+   unreachable. *5.5*: end-of-game truth entry (`Session.truth: Reveal[]`, role +
+   *explicit* alignment) and a read-vs-reality post-mortem scorecard, both on a
+   "Review" tab that only appears once a game is finished. Both fields are optional
+   and absent-tolerant, so still no migration (schema stays v3).
 6. Second game (Werewolf or Deception) — the real test of the config abstraction.
    Expect to refactor.
 7. Accounts, cloud sync, sharing.

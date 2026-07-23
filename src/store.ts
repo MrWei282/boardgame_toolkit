@@ -1,6 +1,6 @@
 import { create } from 'zustand'
 import { loadAll, saveAll, VERSION } from './storage'
-import type { Assertion, GameEvent, Phase, PlayerId, ReadTag, RoleId, RoleTag, Session } from './types'
+import type { Assertion, GameEvent, Phase, PlayerId, ReadTag, Reveal, RoleId, RoleTag, Session } from './types'
 import { uid } from './uid'
 
 type NewAssertion = {
@@ -32,10 +32,12 @@ type Store = {
   /** Make an existing session current — resume an ongoing game or review a finished one. */
   openSession: (id: string) => void
   closeSession: () => void
-  /** Mark the current game finished and return home. */
+  /** Mark the current game finished (stays open so the review can be filled in). */
   endSession: () => void
   /** Toggle a session's finished flag from the home list. */
   setEnded: (id: string, ended: boolean) => void
+  /** Record end-of-game ground truth; also marks the game finished. */
+  setTruth: (truth: Reveal[]) => void
   deleteSession: (id: string) => void
 
   nextPhase: () => void
@@ -124,13 +126,13 @@ export const useStore = create<Store>()((set, get) => {
       void saveAll({ version: VERSION, currentSessionId: null, sessions })
     },
 
-    endSession: () => {
-      // Stamp finished, then leave to the home list. (5.5 will route into truth entry.)
-      updateSession((s) => ({ ...s, endedAt: s.endedAt ?? Date.now() }))
-      set({ currentSessionId: null })
-      const { sessions } = get()
-      void saveAll({ version: VERSION, currentSessionId: null, sessions })
-    },
+    endSession: () =>
+      // Stamp finished but stay in the session — GameScreen reveals the Review tab
+      // so the post-game truth can be entered straight away.
+      updateSession((s) => ({ ...s, endedAt: s.endedAt ?? Date.now() })),
+
+    setTruth: (truth) =>
+      updateSession((s) => ({ ...s, truth, endedAt: s.endedAt ?? Date.now() })),
 
     setEnded: (id, ended) => {
       const { sessions, currentSessionId } = get()
