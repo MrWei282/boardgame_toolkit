@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useLayoutEffect, useRef, useState } from 'react'
 import { getRole, getTeam } from '../config'
 import { deriveEdges, neighboursOf } from '../diagram/edges'
 import { directedEdge, seatPoint, selfEdge, tokenWedge, type Pt } from '../diagram/geometry'
@@ -23,39 +23,16 @@ const RING_R = 132
 // viewBox edges, so the box is widened horizontally to give them room.
 const PAD_X = 50
 
-// The full (unzoomed) viewBox. Zoom shrinks a window inside it; the seats stay put
-// (their positions are game-critical) — this only changes what's on screen.
-const VB_MIN_X = -PAD_X
-const VB_MIN_Y = 0
+// The viewBox is fixed at the whole circle. Zoom *enlarges the rendered SVG* past
+// its container and you scroll around it — so the circle can grow bigger than the
+// screen and crowded arrows get room. Seats never move (their positions are
+// game-critical); only the on-screen size does.
 const VB_W = SIZE + PAD_X * 2
 const VB_H = SIZE
-const K_MIN = 1
-const K_MAX = 4
-
-type View = { k: number; vx: number; vy: number }
-const FULL_VIEW: View = { k: K_MIN, vx: VB_MIN_X, vy: VB_MIN_Y }
+const SCALE_MIN = 1
+const SCALE_MAX = 3.5
 
 const clamp = (n: number, lo: number, hi: number) => Math.min(hi, Math.max(lo, n))
-
-/** Keep the zoom window inside the base viewBox so you can't pan into blank space. */
-function clampView(v: View): View {
-  const k = clamp(v.k, K_MIN, K_MAX)
-  const w = VB_W / k
-  const h = VB_H / k
-  return {
-    k,
-    vx: clamp(v.vx, VB_MIN_X, VB_MIN_X + VB_W - w),
-    vy: clamp(v.vy, VB_MIN_Y, VB_MIN_Y + VB_H - h),
-  }
-}
-
-/** Zoom by `factor` about a pivot (in user/viewBox coords), holding it in place. */
-function zoomAt(v: View, pivot: Pt, factor: number): View {
-  const k = clamp(v.k * factor, K_MIN, K_MAX)
-  const fracX = (pivot.x - v.vx) / (VB_W / v.k)
-  const fracY = (pivot.y - v.vy) / (VB_H / v.k)
-  return clampView({ k, vx: pivot.x - fracX * (VB_W / k), vy: pivot.y - fracY * (VB_H / k) })
-}
 
 const toneVar: Record<Tone, string> = {
   good: 'var(--color-good)',
@@ -90,126 +67,134 @@ export function SeatCircle({
   const baseBow = tokenR * 0.9
   const step = tokenR * 1.25
 
-  // --- zoom / pan --------------------------------------------------------------
-  // At 15 seats the tokens get small, so allow zooming in. It's a pure view
-  // transform (the dynamic viewBox) — seat positions never move.
-  const svgRef = useRef<SVGSVGElement>(null)
-  const [view, setView] = useState<View>(FULL_VIEW)
-  // Live client positions per active pointer, plus gesture bookkeeping.
-  const pointers = useRef(new Map<number, Pt>())
-  const pinch = useRef<{ dist: number; mid: Pt } | null>(null)
-  // True once a gesture moved enough to be a pan, so it isn't also read as a tap.
-  const moved = useRef(false)
-  const downAt = useRef<Pt | null>(null)
+  // --- zoom --------------------------------------------------------------------
+  // Zoom enlarges the SVG past its scroll box; one finger pans by native scroll,
+  // two fingers pinch, the wheel and +/− buttons zoom. Taps select as normal — no
+  // pointer capture, which is what had been eating clicks.
+  const boxRef = useRef<HTMLDivElement>(null)
+  const [scale, setScale] = useState(SCALE_MIN)
+  const scaleRef = useRef(SCALE_MIN)
+  // Scroll to apply after a zoom re-renders, so it stays centred on the pointer.
+  const pendingScroll = useRef<{ left: number; top: number } | null>(null)
 
-  function userFromClient(v: View, clientX: number, clientY: number): Pt {
-    const rect = svgRef.current!.getBoundingClientRect()
-    return {
-      x: v.vx + ((clientX - rect.left) / rect.width) * (VB_W / v.k),
-      y: v.vy + ((clientY - rect.top) / rect.height) * (VB_H / v.k),
+  useLayoutEffect(() => {
+    const box = boxRef.current
+    if (box && pendingScroll.current) {
+      box.scrollLeft = pendingScroll.current.left
+      box.scrollTop = pendingScroll.current.top
+      pendingScroll.current = null
     }
+  }, [scale])
+
+  /** Zoom to `next`, holding the content point under (clientX, clientY) in place. */
+  function zoomTo(next: number, clientX: number, clientY: number) {
+    const box = boxRef.current
+    if (!box) return
+    const cur = scaleRef.current
+    const target = clamp(next, SCALE_MIN, SCALE_MAX)
+    if (target === cur) return
+    const rect = box.getBoundingClientRect()
+    const w = box.clientWidth
+    const h = w * (VB_H / VB_W)
+    const px = clientX - rect.left
+    const py = clientY - rect.top
+    const fx = (box.scrollLeft + px) / (w * cur)
+    const fy = (box.scrollTop + py) / (h * cur)
+    pendingScroll.current = { left: fx * w * target - px, top: fy * h * target - py }
+    scaleRef.current = target
+    setScale(target)
   }
 
-  // Wheel must be a non-passive native listener to preventDefault the page scroll.
+  function zoomBy(factor: number) {
+    const box = boxRef.current
+    if (!box) return
+    const r = box.getBoundingClientRect()
+    zoomTo(scaleRef.current * factor, r.left + r.width / 2, r.top + r.height / 2)
+  }
+
+  function resetZoom() {
+    pendingScroll.current = { left: 0, top: 0 }
+    scaleRef.current = SCALE_MIN
+    setScale(SCALE_MIN)
+  }
+
+  // Wheel to zoom — non-passive so it doesn't just scroll the box.
   useEffect(() => {
-    const el = svgRef.current
-    if (!el) return
+    const box = boxRef.current
+    if (!box) return
     const onWheel = (e: WheelEvent) => {
       e.preventDefault()
-      const factor = Math.exp(-e.deltaY * 0.0015)
-      setView((v) => zoomAt(v, userFromClient(v, e.clientX, e.clientY), factor))
+      zoomTo(scaleRef.current * Math.exp(-e.deltaY * 0.0015), e.clientX, e.clientY)
     }
-    el.addEventListener('wheel', onWheel, { passive: false })
-    return () => el.removeEventListener('wheel', onWheel)
+    box.addEventListener('wheel', onWheel, { passive: false })
+    return () => box.removeEventListener('wheel', onWheel)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
-  function midAndDist(): { mid: Pt; dist: number } {
-    const [a, b] = [...pointers.current.values()]
-    return {
-      mid: { x: (a.x + b.x) / 2, y: (a.y + b.y) / 2 },
-      dist: Math.hypot(a.x - b.x, a.y - b.y) || 1,
-    }
-  }
-
+  // Two-finger pinch; one finger falls through to the box's native scroll (pan).
+  const pinch = useRef<{ dist: number } | null>(null)
+  const pts = useRef(new Map<number, Pt>())
   function onPointerDown(e: React.PointerEvent) {
-    pointers.current.set(e.pointerId, { x: e.clientX, y: e.clientY })
-    moved.current = false
-    downAt.current = { x: e.clientX, y: e.clientY }
-    if (pointers.current.size === 2) pinch.current = midAndDist()
-    svgRef.current?.setPointerCapture(e.pointerId)
+    pts.current.set(e.pointerId, { x: e.clientX, y: e.clientY })
   }
-
   function onPointerMove(e: React.PointerEvent) {
-    const prev = pointers.current.get(e.pointerId)
-    if (!prev) return
-    const cur = { x: e.clientX, y: e.clientY }
-    pointers.current.set(e.pointerId, cur)
-    if (downAt.current && Math.hypot(cur.x - downAt.current.x, cur.y - downAt.current.y) > 8) {
-      moved.current = true
-    }
-
-    if (pointers.current.size >= 2) {
-      const before = pinch.current
-      const { mid, dist } = midAndDist()
-      if (before) {
-        setView((v) => {
-          let nv = zoomAt(v, userFromClient(v, mid.x, mid.y), dist / before.dist)
-          const rect = svgRef.current!.getBoundingClientRect()
-          nv = clampView({
-            ...nv,
-            vx: nv.vx - ((mid.x - before.mid.x) / rect.width) * (VB_W / nv.k),
-            vy: nv.vy - ((mid.y - before.mid.y) / rect.height) * (VB_H / nv.k),
-          })
-          return nv
-        })
-      }
-      pinch.current = { mid, dist }
-    } else if (view.k > K_MIN) {
-      // Single-finger / mouse drag pans only once zoomed in.
-      setView((v) => {
-        const rect = svgRef.current!.getBoundingClientRect()
-        return clampView({
-          ...v,
-          vx: v.vx - ((cur.x - prev.x) / rect.width) * (VB_W / v.k),
-          vy: v.vy - ((cur.y - prev.y) / rect.height) * (VB_H / v.k),
-        })
-      })
-    }
+    if (!pts.current.has(e.pointerId)) return
+    pts.current.set(e.pointerId, { x: e.clientX, y: e.clientY })
+    if (pts.current.size < 2) return
+    const [a, b] = [...pts.current.values()]
+    const dist = Math.hypot(a.x - b.x, a.y - b.y) || 1
+    if (pinch.current) zoomTo(scaleRef.current * (dist / pinch.current.dist), (a.x + b.x) / 2, (a.y + b.y) / 2)
+    pinch.current = { dist }
   }
-
   function onPointerUp(e: React.PointerEvent) {
-    pointers.current.delete(e.pointerId)
-    if (pointers.current.size < 2) pinch.current = null
+    pts.current.delete(e.pointerId)
+    if (pts.current.size < 2) pinch.current = null
   }
 
-  const handleTokenTap = (id: PlayerId) => {
-    if (!moved.current) onTokenTap(id)
-  }
-  const handleBackgroundTap = () => {
-    if (!moved.current) onBackgroundTap()
-  }
+  const zoomed = scale > SCALE_MIN
 
   return (
     <div className="relative">
-      {view.k > K_MIN && (
+      <div className="absolute top-2 right-2 z-10 flex items-center gap-1">
+        {zoomed && (
+          <button
+            onClick={resetZoom}
+            className="rounded-lg border border-line bg-surface/90 px-2 py-1 text-xs text-muted backdrop-blur active:bg-raised"
+          >
+            Reset
+          </button>
+        )}
         <button
-          onClick={() => setView(FULL_VIEW)}
-          className="absolute top-2 right-2 z-10 rounded-lg border border-line bg-surface/90 px-2.5 py-1 text-xs text-muted backdrop-blur active:bg-raised"
+          onClick={() => zoomBy(1 / 1.4)}
+          aria-label="Zoom out"
+          disabled={!zoomed}
+          className="h-7 w-7 rounded-lg border border-line bg-surface/90 text-base leading-none text-muted backdrop-blur active:bg-raised disabled:opacity-30"
         >
-          Reset zoom
+          −
         </button>
-      )}
-      <svg
-        ref={svgRef}
-        viewBox={`${view.vx} ${view.vy} ${VB_W / view.k} ${VB_H / view.k}`}
-        className="w-full touch-none select-none"
-        role="img"
-        aria-label="Player relationship diagram"
+        <button
+          onClick={() => zoomBy(1.4)}
+          aria-label="Zoom in"
+          className="h-7 w-7 rounded-lg border border-line bg-surface/90 text-base leading-none text-muted backdrop-blur active:bg-raised"
+        >
+          +
+        </button>
+      </div>
+
+      <div
+        ref={boxRef}
+        className="max-h-[62vh] touch-pan-x touch-pan-y select-none overflow-auto overscroll-contain"
         onPointerDown={onPointerDown}
         onPointerMove={onPointerMove}
         onPointerUp={onPointerUp}
         onPointerCancel={onPointerUp}
       >
+        <svg
+          viewBox={`${-PAD_X} 0 ${VB_W} ${VB_H}`}
+          style={{ width: `${scale * 100}%`, aspectRatio: `${VB_W} / ${VB_H}`, display: 'block' }}
+          role="img"
+          aria-label="Player relationship diagram"
+        >
         {/* Background catches taps to clear focus. */}
         <rect
           x={-PAD_X}
@@ -217,7 +202,7 @@ export function SeatCircle({
           width={SIZE + PAD_X * 2}
           height={SIZE}
           fill="transparent"
-          onClick={handleBackgroundTap}
+          onClick={onBackgroundTap}
         />
 
       <g>
@@ -286,7 +271,7 @@ export function SeatCircle({
             <g
               key={p.id}
               style={{ opacity: dim, cursor: 'pointer' }}
-              onClick={() => handleTokenTap(p.id)}
+              onClick={() => onTokenTap(p.id)}
             >
               {halo && (
                 <circle
@@ -379,6 +364,7 @@ export function SeatCircle({
         })}
       </g>
       </svg>
+      </div>
     </div>
   )
 }

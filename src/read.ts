@@ -9,11 +9,11 @@ import type { Tone } from './types'
  * scale on their own, so no separate legend is needed.
  */
 export const LEAN_STEPS: { lean: number; label: string }[] = [
-  { lean: -2, label: 'certain evil' },
-  { lean: -1, label: 'possible evil' },
+  { lean: -2, label: 'sure evil' },
+  { lean: -1, label: 'maybe evil' },
   { lean: 0, label: 'neutral' },
-  { lean: 1, label: 'possible good' },
-  { lean: 2, label: 'certain good' },
+  { lean: 1, label: 'maybe good' },
+  { lean: 2, label: 'sure good' },
 ]
 
 export function leanTone(lean: number): Tone {
