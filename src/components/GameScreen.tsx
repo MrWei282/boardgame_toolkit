@@ -111,6 +111,8 @@ export function GameScreen({ session }: { session: Session }) {
               game={game}
               script={script}
               onTagPlayer={setTaggingPlayer}
+              onEditAssertion={(a) => setSaid({ editing: a })}
+              onEditEvent={(e) => setHappened({ editing: e, preset: null })}
               at={viewPhase}
             />
           )}

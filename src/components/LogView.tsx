@@ -4,7 +4,7 @@ import { phaseFromRank, rankOf } from '../projections'
 import { phaseLabel, useStore } from '../store'
 import type { Assertion, GameConfig, GameEvent, ScriptConfig, Session } from '../types'
 import { AssertionText } from './AssertionText'
-import { EntryMenu } from './EntryMenu'
+import { EntryActions } from './EntryActions'
 
 type Props = {
   session: Session
@@ -123,9 +123,10 @@ export function LogView({ session, game, script, highlightRank, onEditAssertion,
             </div>
           </div>
 
-          <EntryMenu
+          <EntryActions
             pinned={item.pinned}
             hidden={struck}
+            deleteMessage={item.kind === 'assertion' ? 'Delete this entry?' : 'Delete this event?'}
             onEdit={() =>
               item.kind === 'assertion' ? onEditAssertion(item.data) : onEditEvent(item.data)
             }

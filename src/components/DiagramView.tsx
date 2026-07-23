@@ -5,8 +5,9 @@ import { isAlive } from '../projections'
 import { currentRead, currentRoleIds, useStore } from '../store'
 import { toneChip, toneText } from '../tone'
 import type { GameConfig, GameEvent, Phase, PlayerId, ScriptConfig, Session } from '../types'
+import type { Assertion } from '../types'
 import { AssertionText } from './AssertionText'
-import { DeleteButton } from './DeleteButton'
+import { EntryActions } from './EntryActions'
 import { LeanControl } from './LeanControl'
 import { SeatCircle } from './SeatCircle'
 
@@ -15,13 +16,17 @@ type Props = {
   game: GameConfig
   script: ScriptConfig
   onTagPlayer: (id: PlayerId) => void
+  onEditAssertion: (a: Assertion) => void
+  onEditEvent: (e: GameEvent) => void
   /** Phase to stamp a new read into — the phase currently in view. */
   at: { round: number; phase: Phase }
 }
 
-export function DiagramView({ session, game, script, onTagPlayer, at }: Props) {
+export function DiagramView({ session, game, script, onTagPlayer, onEditAssertion, onEditEvent, at }: Props) {
   const deleteAssertion = useStore((s) => s.deleteAssertion)
   const deleteEvent = useStore((s) => s.deleteEvent)
+  const updateAssertion = useStore((s) => s.updateAssertion)
+  const updateEvent = useStore((s) => s.updateEvent)
   const setRead = useStore((s) => s.setRead)
 
   // Focus mode is the working view: tap a token to isolate it, tap empty space
@@ -45,31 +50,50 @@ export function DiagramView({ session, game, script, onTagPlayer, at }: Props) {
 
   const guessedRoleIds = focusedId ? currentRoleIds(session, focusedId) : []
 
-  function assertionNode(a: Session['assertions'][number]) {
+  function assertionNode(a: Assertion) {
     const parts = assertionParts(a, session, game, script)
+    const struck = !!a.hidden
     return (
       <li key={a.id} className="flex items-start gap-2 text-sm leading-snug">
-        <span className="min-w-0 flex-1">
+        {/* Dim the content, not the row — the row holds EntryActions' portal trigger
+            and the delete confirm; only the words are struck. */}
+        <span className={['min-w-0 flex-1', struck ? 'opacity-45 line-through decoration-muted' : ''].join(' ')}>
           <AssertionText parts={parts} />
           {parts.note && <span className="mt-0.5 block text-xs text-muted">“{parts.note}”</span>}
         </span>
-        <DeleteButton onConfirm={() => deleteAssertion(a.id)} />
+        <EntryActions
+          pinned={!!a.pinned}
+          hidden={struck}
+          onEdit={() => onEditAssertion(a)}
+          onTogglePin={() => updateAssertion(a.id, { pinned: !a.pinned })}
+          onToggleStrike={() => updateAssertion(a.id, { hidden: !a.hidden })}
+          onDelete={() => deleteAssertion(a.id)}
+        />
       </li>
     )
   }
 
   function eventNode(e: GameEvent) {
     const lifeTone = e.setsAlive === false ? 'text-evil' : e.setsAlive === true ? 'text-good' : 'text-muted'
+    const struck = !!e.hidden
     return (
       <li key={e.id} className="flex items-start gap-2 text-sm leading-snug">
-        <span className="min-w-0 flex-1">
+        <span className={['min-w-0 flex-1', struck ? 'opacity-45 line-through decoration-muted' : ''].join(' ')}>
           <span className={`mr-1 ${lifeTone}`}>◆</span>
           <span className="font-medium">{e.label || 'Event'}</span>
           {e.setsAlive === false && <span className="text-evil"> · died</span>}
           {e.setsAlive === true && <span className="text-good"> · revived</span>}
           {e.note && <span className="mt-0.5 block text-xs text-muted">“{e.note}”</span>}
         </span>
-        <DeleteButton onConfirm={() => deleteEvent(e.id)} message="Delete this event?" />
+        <EntryActions
+          pinned={!!e.pinned}
+          hidden={struck}
+          deleteMessage="Delete this event?"
+          onEdit={() => onEditEvent(e)}
+          onTogglePin={() => updateEvent(e.id, { pinned: !e.pinned })}
+          onToggleStrike={() => updateEvent(e.id, { hidden: !e.hidden })}
+          onDelete={() => deleteEvent(e.id)}
+        />
       </li>
     )
   }
