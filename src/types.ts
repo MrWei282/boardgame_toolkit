@@ -123,6 +123,9 @@ export type PlayerState = {
 export type Session = {
   id: string
   createdAt: number
+  /** When the game was marked finished. Absent = still ongoing. Drives the home
+   *  list's ongoing/finished split and (from 5.5) gates truth entry. */
+  endedAt?: number
   gameId: string
   scriptId: string
   round: number

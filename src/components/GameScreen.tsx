@@ -58,6 +58,7 @@ export function GameScreen({ session }: { session: Session }) {
         alive={aliveCount(view)}
         total={session.players.length}
         reviewing={!isLive}
+        ended={session.endedAt !== undefined}
       />
 
       <div className="mx-auto max-w-md px-3">

@@ -29,7 +29,13 @@ type Store = {
 
   hydrate: () => Promise<void>
   createSession: (input: { gameId: string; scriptId: string; names: string[] }) => void
+  /** Make an existing session current — resume an ongoing game or review a finished one. */
+  openSession: (id: string) => void
   closeSession: () => void
+  /** Mark the current game finished and return home. */
+  endSession: () => void
+  /** Toggle a session's finished flag from the home list. */
+  setEnded: (id: string, ended: boolean) => void
   deleteSession: (id: string) => void
 
   nextPhase: () => void
@@ -104,11 +110,35 @@ export const useStore = create<Store>()((set, get) => {
       void saveAll({ version: VERSION, currentSessionId: session.id, sessions })
     },
 
+    openSession: (id) => {
+      const { sessions } = get()
+      if (!sessions[id]) return
+      set({ currentSessionId: id })
+      void saveAll({ version: VERSION, currentSessionId: id, sessions })
+    },
+
     closeSession: () => {
       // Keeps the session in storage — closing is leaving the game, not deleting it.
       const { sessions } = get()
       set({ currentSessionId: null })
       void saveAll({ version: VERSION, currentSessionId: null, sessions })
+    },
+
+    endSession: () => {
+      // Stamp finished, then leave to the home list. (5.5 will route into truth entry.)
+      updateSession((s) => ({ ...s, endedAt: s.endedAt ?? Date.now() }))
+      set({ currentSessionId: null })
+      const { sessions } = get()
+      void saveAll({ version: VERSION, currentSessionId: null, sessions })
+    },
+
+    setEnded: (id, ended) => {
+      const { sessions, currentSessionId } = get()
+      const target = sessions[id]
+      if (!target) return
+      const next = { ...sessions, [id]: { ...target, endedAt: ended ? (target.endedAt ?? Date.now()) : undefined } }
+      set({ sessions: next })
+      void saveAll({ version: VERSION, currentSessionId, sessions: next })
     },
 
     deleteSession: (id) => {
@@ -261,6 +291,12 @@ export const useStore = create<Store>()((set, get) => {
 
 export function useSession(): Session | null {
   return useStore((s) => (s.currentSessionId ? (s.sessions[s.currentSessionId] ?? null) : null))
+}
+
+/** All sessions, newest first — the home list reads this. */
+export function useSessions(): Session[] {
+  const sessions = useStore((s) => s.sessions)
+  return Object.values(sessions).sort((a, b) => b.createdAt - a.createdAt)
 }
 
 /** The current guess for a player — the latest entry, which may hold several roles. */

@@ -2,7 +2,7 @@ import { useState } from 'react'
 import { DEFAULT_GAME_ID, DEFAULT_SCRIPT_ID, getGame, getScript } from '../config'
 import { useStore } from '../store'
 
-export function SessionSetup() {
+export function SessionSetup({ onCancel }: { onCancel: () => void }) {
   const createSession = useStore((s) => s.createSession)
 
   const game = getGame(DEFAULT_GAME_ID)
@@ -29,7 +29,15 @@ export function SessionSetup() {
 
   return (
     <div className="mx-auto flex min-h-dvh max-w-md flex-col px-4 pt-6 pb-[max(1rem,env(safe-area-inset-bottom))]">
-      <h1 className="text-xl font-semibold">New session</h1>
+      <div className="flex items-center justify-between">
+        <h1 className="text-xl font-semibold">New session</h1>
+        <button
+          onClick={onCancel}
+          className="rounded-lg border border-line bg-raised px-3 py-1.5 text-xs text-muted active:bg-line"
+        >
+          Cancel
+        </button>
+      </div>
       <p className="mt-1 text-sm text-muted">
         {game.name} · {script.name}
       </p>
