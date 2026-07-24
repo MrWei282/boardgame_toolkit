@@ -72,8 +72,11 @@ export function SeatCircle({
   // two fingers pinch, the wheel and +/− buttons zoom. Taps select as normal — no
   // pointer capture, which is what had been eating clicks.
   const boxRef = useRef<HTMLDivElement>(null)
-  const [scale, setScale] = useState(SCALE_MIN)
-  const scaleRef = useRef(SCALE_MIN)
+  // A crowded table (12+) opens already spread out — that's the point of zoom, and
+  // it's why "−" (fit to screen) then has something to do. Small tables fit as-is.
+  const initialScale = clamp(1 + Math.max(0, n - 10) * 0.12, SCALE_MIN, 1.8)
+  const [scale, setScale] = useState(initialScale)
+  const scaleRef = useRef(initialScale)
   // Scroll to apply after a zoom re-renders, so it stays centred on the pointer.
   const pendingScroll = useRef<{ left: number; top: number } | null>(null)
 
@@ -85,6 +88,16 @@ export function SeatCircle({
       pendingScroll.current = null
     }
   }, [scale])
+
+  // On first mount an expanded default starts centred, not in a corner.
+  useLayoutEffect(() => {
+    const box = boxRef.current
+    if (box && scaleRef.current > SCALE_MIN) {
+      box.scrollLeft = (box.scrollWidth - box.clientWidth) / 2
+      box.scrollTop = (box.scrollHeight - box.clientHeight) / 2
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
 
   /** Zoom to `next`, holding the content point under (clientX, clientY) in place. */
   function zoomTo(next: number, clientX: number, clientY: number) {
@@ -131,24 +144,61 @@ export function SeatCircle({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
-  // Two-finger pinch; one finger falls through to the box's native scroll (pan).
+  // Two-finger pinch zooms; one finger falls through to the box's native scroll.
+  // On desktop there's no touch scroll, so a mouse drag pans (only when zoomed, so
+  // a stray move during a click never suppresses selection).
   const pinch = useRef<{ dist: number } | null>(null)
   const pts = useRef(new Map<number, Pt>())
+  const drag = useRef<Pt | null>(null)
+  const dragged = useRef(false)
+
   function onPointerDown(e: React.PointerEvent) {
     pts.current.set(e.pointerId, { x: e.clientX, y: e.clientY })
+    if (e.pointerType === 'mouse' && e.button === 0 && scaleRef.current > SCALE_MIN) {
+      drag.current = { x: e.clientX, y: e.clientY }
+      dragged.current = false
+    }
   }
   function onPointerMove(e: React.PointerEvent) {
-    if (!pts.current.has(e.pointerId)) return
-    pts.current.set(e.pointerId, { x: e.clientX, y: e.clientY })
-    if (pts.current.size < 2) return
-    const [a, b] = [...pts.current.values()]
-    const dist = Math.hypot(a.x - b.x, a.y - b.y) || 1
-    if (pinch.current) zoomTo(scaleRef.current * (dist / pinch.current.dist), (a.x + b.x) / 2, (a.y + b.y) / 2)
-    pinch.current = { dist }
+    if (pts.current.has(e.pointerId)) pts.current.set(e.pointerId, { x: e.clientX, y: e.clientY })
+
+    if (pts.current.size >= 2) {
+      const [a, b] = [...pts.current.values()]
+      const dist = Math.hypot(a.x - b.x, a.y - b.y) || 1
+      if (pinch.current) zoomTo(scaleRef.current * (dist / pinch.current.dist), (a.x + b.x) / 2, (a.y + b.y) / 2)
+      pinch.current = { dist }
+      return
+    }
+
+    if (drag.current && (e.buttons & 1) && boxRef.current) {
+      const dx = e.clientX - drag.current.x
+      const dy = e.clientY - drag.current.y
+      if (Math.abs(dx) + Math.abs(dy) > 3) dragged.current = true
+      boxRef.current.scrollLeft -= dx
+      boxRef.current.scrollTop -= dy
+      drag.current = { x: e.clientX, y: e.clientY }
+    }
   }
   function onPointerUp(e: React.PointerEvent) {
     pts.current.delete(e.pointerId)
     if (pts.current.size < 2) pinch.current = null
+    if (e.pointerType === 'mouse') drag.current = null
+  }
+
+  // A completed mouse-drag suppresses the click it would otherwise fire.
+  const handleTokenTap = (id: PlayerId) => {
+    if (dragged.current) {
+      dragged.current = false
+      return
+    }
+    onTokenTap(id)
+  }
+  const handleBackgroundTap = () => {
+    if (dragged.current) {
+      dragged.current = false
+      return
+    }
+    onBackgroundTap()
   }
 
   const zoomed = scale > SCALE_MIN
@@ -183,7 +233,10 @@ export function SeatCircle({
 
       <div
         ref={boxRef}
-        className="max-h-[62vh] touch-pan-x touch-pan-y select-none overflow-auto overscroll-contain"
+        className={[
+          'max-h-[78vh] touch-pan-x touch-pan-y select-none overflow-auto overscroll-contain',
+          zoomed ? 'cursor-grab active:cursor-grabbing' : '',
+        ].join(' ')}
         onPointerDown={onPointerDown}
         onPointerMove={onPointerMove}
         onPointerUp={onPointerUp}
@@ -202,7 +255,7 @@ export function SeatCircle({
           width={SIZE + PAD_X * 2}
           height={SIZE}
           fill="transparent"
-          onClick={onBackgroundTap}
+          onClick={handleBackgroundTap}
         />
 
       <g>
@@ -271,7 +324,7 @@ export function SeatCircle({
             <g
               key={p.id}
               style={{ opacity: dim, cursor: 'pointer' }}
-              onClick={() => onTokenTap(p.id)}
+              onClick={() => handleTokenTap(p.id)}
             >
               {halo && (
                 <circle
