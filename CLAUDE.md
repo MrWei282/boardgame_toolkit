@@ -140,10 +140,14 @@ Notes on why it looks like this:
   re-nomination duplicated the count. A vote can't be tied to a nomination without
   the link, so `parentId` is load-bearing, not speculative. `storage.ts` v3 backfills
   it on old votes (best-effort; that historical case is exactly the ambiguous one).
-- **Gotcha — `opacity` (and transform/filter) creates a stacking context.** A struck
-  row was dimmed with `opacity-45`, which trapped the entry menu's fixed popover
-  below the bottom bar's z-index. Dim *content*, never a container that holds a
-  portal-less overlay. Bit us once; watch for it.
+- **Gotcha — `opacity`/`transform`/`filter`/`backdrop-filter` creates a containing
+  block *and* a stacking context.** Two bites: (1) a struck row dimmed with
+  `opacity-45` trapped the entry menu's fixed popover below the bottom bar's
+  z-index; (2) the RoundBar's `backdrop-blur` became the containing block for the
+  Menu's `fixed inset-0` Sheet, cropping it to the header. Fix for overlays: the
+  shared `Sheet` now `createPortal`s to `document.body`, so it's viewport-relative
+  regardless of ancestors. Still: dim *content*, never a container that holds an
+  overlay, and portal anything `fixed` that can render under a filtered ancestor.
 
 - **`targets` is an array** even though v1 writes one element. BotC info roles break
   a strict triple immediately — Empath says "1 evil between P2 and P4", Fortune
@@ -209,6 +213,14 @@ Notes on why it looks like this:
   sheets) — no `†` marker.
 - Focus mode is the working view, not the full graph: tap a player, dim the rest,
   show only their edges. A full 15-player arrow graph is unreadable on a phone.
+- **Diagram zoom is a ring *spread*, not a magnify.** It grows the ring radius so
+  seats move apart while tokens keep their size — crowded arrows get real gap.
+  Implemented by scaling `ringR` (tokens fixed) and rendering the SVG larger than
+  its scroll box; wheel/pinch/`+`−`/drag/`Fit`. Crowded tables (12+) auto-spread.
+  A plain magnify (tried first) kept the spacing and just cropped — rejected.
+- **Per-entry actions are inline icons (`EntryActions`: edit ✎ / pin ★ / strike S̶ /
+  delete ✕), used in both the log and the diagram focus panel** — a ⋯ sheet hid the
+  actions from the focus panel and was a tap too many. Delete confirms (portaled).
 - Dark by default. A bright phone at a dim table is an attention magnet.
 - Portrait, one-handed, thumb-reachable.
 
