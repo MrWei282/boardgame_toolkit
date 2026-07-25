@@ -8,6 +8,13 @@ import { Sheet } from './Sheet'
 
 type Draft = { roleId?: RoleId; alignment: Alignment }
 
+// good | neutral | evil — neutral sits in the middle, mirroring the read scale.
+const ALIGN_OPTIONS: { id: Alignment; label: string; on: string }[] = [
+  { id: 'good', label: 'good', on: 'bg-good/25 text-good' },
+  { id: 'neutral', label: 'neutral', on: 'bg-neutral/25 text-neutral' },
+  { id: 'evil', label: 'evil', on: 'bg-evil/25 text-evil' },
+]
+
 /**
  * Post-game ground truth: each player's actual alignment (the core input) and,
  * optionally, their role. Alignment leads because it's the quick, always-known
@@ -80,24 +87,19 @@ export function TruthEntry({
                 <span className="w-5 shrink-0 text-xs text-muted tabular-nums">{p.seat + 1}</span>
                 <span className="min-w-0 flex-1 truncate text-sm font-medium">{p.name}</span>
                 <div className="flex shrink-0 overflow-hidden rounded-lg border border-line">
-                  <button
-                    onClick={() => setAlignment(p.id, 'good')}
-                    className={[
-                      'px-3 py-1 text-xs font-semibold',
-                      d.alignment === 'good' ? 'bg-good/25 text-good' : 'text-muted active:bg-raised',
-                    ].join(' ')}
-                  >
-                    good
-                  </button>
-                  <button
-                    onClick={() => setAlignment(p.id, 'evil')}
-                    className={[
-                      'border-l border-line px-3 py-1 text-xs font-semibold',
-                      d.alignment === 'evil' ? 'bg-evil/25 text-evil' : 'text-muted active:bg-raised',
-                    ].join(' ')}
-                  >
-                    evil
-                  </button>
+                  {ALIGN_OPTIONS.map((opt, i) => (
+                    <button
+                      key={opt.id}
+                      onClick={() => setAlignment(p.id, opt.id)}
+                      className={[
+                        'px-2.5 py-1 text-xs font-semibold',
+                        i > 0 ? 'border-l border-line' : '',
+                        d.alignment === opt.id ? opt.on : 'text-muted active:bg-raised',
+                      ].join(' ')}
+                    >
+                      {opt.label}
+                    </button>
+                  ))}
                 </div>
               </div>
               <button

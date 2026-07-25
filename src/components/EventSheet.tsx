@@ -1,7 +1,7 @@
 import { useEffect, useState, type ReactNode } from 'react'
 import { isAlive } from '../projections'
 import { useStore } from '../store'
-import type { GameEvent, Phase, PlayerId, Session } from '../types'
+import type { GameConfig, GameEvent, Phase, PlayerId, Session } from '../types'
 import { SeatGrid } from './SeatGrid'
 import { Sheet } from './Sheet'
 
@@ -9,6 +9,7 @@ type Props = {
   open: boolean
   onClose: () => void
   session: Session
+  game: GameConfig
   /** Optional player to pre-select as the subject (from the Players tab). */
   presetSubject?: PlayerId | null
   /** Phase to record into — the phase currently being viewed. */
@@ -31,7 +32,7 @@ function effectOf(setsAlive: boolean | undefined): LifeEffect {
   return setsAlive === false ? 'died' : setsAlive === true ? 'revived' : 'none'
 }
 
-export function EventSheet({ open, onClose, session, presetSubject, at, editing }: Props) {
+export function EventSheet({ open, onClose, session, game, presetSubject, at, editing }: Props) {
   const addEvent = useStore((s) => s.addEvent)
   const updateEvent = useStore((s) => s.updateEvent)
 
@@ -51,7 +52,7 @@ export function EventSheet({ open, onClose, session, presetSubject, at, editing 
       setNote(editing.note ?? '')
     } else if (presetSubject) {
       setSubjects([presetSubject])
-      setEffect(isAlive(session, presetSubject) ? 'died' : 'revived')
+      setEffect(isAlive(game, session, presetSubject) ? 'died' : 'revived')
       setLabel('')
       setNote('')
     } else {
@@ -63,7 +64,7 @@ export function EventSheet({ open, onClose, session, presetSubject, at, editing 
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open, presetSubject, editing])
 
-  const deadIds = new Set(session.players.filter((p) => !isAlive(session, p.id)).map((p) => p.id))
+  const deadIds = new Set(session.players.filter((p) => !isAlive(game, session, p.id)).map((p) => p.id))
 
   function toggleSubject(id: PlayerId) {
     setSubjects((prev) => (prev.includes(id) ? prev.filter((s) => s !== id) : [...prev, id]))

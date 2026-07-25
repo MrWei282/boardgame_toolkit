@@ -1,9 +1,11 @@
 import { useState } from 'react'
-import { phaseLabel, useStore } from '../store'
-import type { Phase } from '../types'
+import { phaseLabel } from '../projections'
+import { useStore } from '../store'
+import type { GameConfig, Phase } from '../types'
 import { Sheet } from './Sheet'
 
 type Props = {
+  game: GameConfig
   round: number
   phase: Phase
   alive: number
@@ -19,7 +21,7 @@ type Props = {
  * through time lives in the Timeline below, not here, so there are no rewind
  * arrows that would appear to delete the current phase.
  */
-export function RoundBar({ round, phase, alive, total, reviewing, ended }: Props) {
+export function RoundBar({ game, round, phase, alive, total, reviewing, ended }: Props) {
   const closeSession = useStore((s) => s.closeSession)
   const endSession = useStore((s) => s.endSession)
   const [menu, setMenu] = useState(false)
@@ -29,7 +31,7 @@ export function RoundBar({ round, phase, alive, total, reviewing, ended }: Props
       <div className="mx-auto flex max-w-md items-center gap-2 px-3 py-2 pt-[max(0.5rem,env(safe-area-inset-top))]">
         <div className="flex-1">
           <div className="flex items-center gap-2 text-base font-semibold">
-            {phaseLabel(round, phase)}
+            {phaseLabel(game, round, phase)}
             {reviewing && (
               <span className="rounded bg-info/15 px-1.5 py-0.5 text-[10px] font-medium text-info">
                 reviewing

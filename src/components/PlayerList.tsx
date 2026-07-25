@@ -1,6 +1,6 @@
 import { getRole, getTeam } from '../config'
 import { isAlive } from '../projections'
-import { currentRead, currentRoleIds, useStore } from '../store'
+import { currentReadValue, currentRoleIds, useStore } from '../store'
 import { toneChip } from '../tone'
 import type { GameConfig, Phase, PlayerId, ScriptConfig, Session } from '../types'
 import { LeanControl } from './LeanControl'
@@ -22,7 +22,7 @@ export function PlayerList({ session, game, script, onTagPlayer, onEditLife, at 
     <ul className="space-y-1.5">
       {session.players.map((player) => {
         const roleIds = currentRoleIds(session, player.id)
-        const alive = isAlive(session, player.id)
+        const alive = isAlive(game, session, player.id)
 
         return (
           <li key={player.id} className="overflow-hidden rounded-xl border border-line bg-surface">
@@ -92,7 +92,7 @@ export function PlayerList({ session, game, script, onTagPlayer, onEditLife, at 
             <span className="shrink-0 text-[11px] text-muted">read</span>
             <div className="flex-1">
               <LeanControl
-                value={currentRead(session, player.id)}
+                value={currentReadValue(session, player.id)}
                 onChange={(lean) => setRead(player.id, lean, at)}
               />
             </div>

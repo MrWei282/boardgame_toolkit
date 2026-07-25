@@ -21,13 +21,13 @@ export function leanTone(lean: number): Tone {
 }
 
 /**
- * How the token halo draws, by how sure the read is. Colour still carries the side
- * (good/evil) and stays vivid either way so + vs − reads clearly; certainty is a
- * shape difference instead of a brightness one — a hunch (±1) is a thin dashed
- * ring, a confident read (±2) a thick solid one.
+ * How the token halo draws, by how sure the read is. Colour (via `leanTone`)
+ * carries the side and stays vivid so +/−/neutral read clearly; certainty is a
+ * shape difference — a hunch (±1) or a neutral read (0) is a thin dashed ring, a
+ * confident read (±2) a thick solid one. `null` (never read) draws no halo, which
+ * is what keeps a deliberate neutral read visually distinct from no read at all.
  */
-export function haloStyle(lean: number): { width: number; opacity: number; dash?: string } | null {
-  const mag = Math.abs(lean)
-  if (mag === 0) return null
-  return mag >= 2 ? { width: 3.75, opacity: 1 } : { width: 2, opacity: 0.9, dash: '2.5 2.5' }
+export function haloStyle(lean: number | null): { width: number; opacity: number; dash?: string } | null {
+  if (lean === null) return null
+  return Math.abs(lean) >= 2 ? { width: 3.75, opacity: 1 } : { width: 2, opacity: 0.9, dash: '2.5 2.5' }
 }

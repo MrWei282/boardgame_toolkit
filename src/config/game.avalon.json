@@ -1,0 +1,14 @@
+{
+  "id": "avalon",
+  "name": "The Resistance: Avalon",
+  "minPlayers": 5,
+  "maxPlayers": 10,
+  "phases": {
+    "setup": [{ "id": "night", "label": "Night", "short": "N" }],
+    "cycle": [{ "id": "mission", "label": "Mission", "short": "M" }]
+  },
+  "teams": [
+    { "id": "loyal", "name": "Loyal Servant", "alignment": "good", "tone": "good" },
+    { "id": "minion", "name": "Minion of Mordred", "alignment": "evil", "tone": "evil" }
+  ]
+}

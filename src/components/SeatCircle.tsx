@@ -4,7 +4,7 @@ import { deriveEdges, neighboursOf } from '../diagram/edges'
 import { directedEdge, seatPoint, selfEdge, tokenWedge, type Pt } from '../diagram/geometry'
 import { isAlive } from '../projections'
 import { haloStyle, leanTone } from '../read'
-import { currentRead, currentRoleIds } from '../store'
+import { currentReadValue, currentRoleIds } from '../store'
 import type { GameConfig, PlayerId, ScriptConfig, Session, Tone } from '../types'
 
 type Props = {
@@ -299,18 +299,18 @@ export function SeatCircle({
             {session.players.map((p) => {
               const c = centres.get(p.id)!
               const roleIds = currentRoleIds(session, p.id)
-              const alive = isAlive(session, p.id)
+              const alive = isAlive(game, session, p.id)
               const dim = lit ? (lit.has(p.id) ? 1 : 0.22) : 1
               const focused = focusedId === p.id
 
               // My alignment read draws as a halo just outside the token — a separate
               // channel from the role-guess wedges (fill) and the alive/focus border.
-              const lean = currentRead(session, p.id)
+              const lean = currentReadValue(session, p.id)
               const halo = haloStyle(lean)
 
               return (
                 <g key={p.id} style={{ opacity: dim, cursor: 'pointer' }} onClick={() => handleTokenTap(p.id)}>
-                  {halo && (
+                  {halo && lean !== null && (
                     <circle
                       cx={c.x}
                       cy={c.y}
@@ -379,7 +379,7 @@ export function SeatCircle({
               const label = seatPoint(p.seat, n, CENTER.x, CENTER.y, ringR + tokenR + 9)
               const anchor = label.x < CENTER.x - 4 ? 'end' : label.x > CENTER.x + 4 ? 'start' : 'middle'
               const dim = lit ? (lit.has(p.id) ? 1 : 0.22) : 1
-              const alive = isAlive(session, p.id)
+              const alive = isAlive(game, session, p.id)
               // A dead token shows 💀 where its number was, so carry the seat number
               // here instead. Living labels are just the name.
               const shortName = p.name.length > 8 ? p.name.slice(0, 7) + '…' : p.name

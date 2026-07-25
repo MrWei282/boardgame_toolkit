@@ -1,6 +1,6 @@
 import { useEffect, useState, type ReactNode } from 'react'
 import { getGame, getScript } from '../config'
-import { aliveCount, phaseFromRank, projectSession, rankOf } from '../projections'
+import { aliveCount, FIRST_RANK, phaseFromRank, projectSession, rankOf } from '../projections'
 import { useStore } from '../store'
 import type { Assertion, GameEvent, PlayerId, Session } from '../types'
 import { AssertionSheet } from './AssertionSheet'
@@ -34,23 +34,23 @@ export function GameScreen({ session }: { session: Session }) {
   const [taggingPlayer, setTaggingPlayer] = useState<PlayerId | null>(null)
 
   // Timeline viewpoint. null = live (follow the game); a rank = reviewing the past.
-  const currentRank = rankOf(session.round, session.phase)
+  const currentRank = rankOf(game, session.round, session.phase)
   const [pinnedRank, setPinnedRank] = useState<number | null>(null)
   const viewRank = pinnedRank !== null && pinnedRank < currentRank ? pinnedRank : currentRank
   const isLive = viewRank >= currentRank
 
   // Rendering tabs and entry sheets both see the session as of the viewpoint, and
   // new entries are stamped into that phase — so you can log into a past night.
-  const view = isLive ? session : projectSession(session, viewRank)
-  const viewPhase = phaseFromRank(viewRank)
+  const view = isLive ? session : projectSession(game, session, viewRank)
+  const viewPhase = phaseFromRank(game, viewRank)
 
   // The live phase can be undone only while it holds nothing — that reverses an
   // accidental advance without ever removing a phase that has content.
   const hasEntriesAtCurrent =
-    session.assertions.some((a) => rankOf(a.round, a.phase) === currentRank) ||
-    session.events.some((e) => rankOf(e.round, e.phase) === currentRank) ||
-    session.roleTags.some((t) => rankOf(t.round, t.phase) === currentRank)
-  const canRetract = currentRank > 2 && !hasEntriesAtCurrent
+    session.assertions.some((a) => rankOf(game, a.round, a.phase) === currentRank) ||
+    session.events.some((e) => rankOf(game, e.round, e.phase) === currentRank) ||
+    session.roleTags.some((t) => rankOf(game, t.round, t.phase) === currentRank)
+  const canRetract = currentRank > FIRST_RANK && !hasEntriesAtCurrent
 
   function openEventFor(id: PlayerId | null) {
     setHappened({ editing: null, preset: id })
@@ -59,9 +59,10 @@ export function GameScreen({ session }: { session: Session }) {
   return (
     <div className="min-h-dvh">
       <RoundBar
+        game={game}
         round={viewPhase.round}
         phase={viewPhase.phase}
-        alive={aliveCount(view)}
+        alive={aliveCount(game, view)}
         total={session.players.length}
         reviewing={!isLive}
         ended={session.endedAt !== undefined}
@@ -88,6 +89,7 @@ export function GameScreen({ session }: { session: Session }) {
         {/* The timeline drives live play; the review is timeless, so hide it there. */}
         {tab !== 'review' && (
           <Timeline
+            game={game}
             currentRank={currentRank}
             viewRank={viewRank}
             onSelect={(r) => setPinnedRank(r >= currentRank ? null : r)}
@@ -178,6 +180,7 @@ export function GameScreen({ session }: { session: Session }) {
         open={happened !== null}
         onClose={() => setHappened(null)}
         session={view}
+        game={game}
         presetSubject={happened?.preset ?? null}
         at={viewPhase}
         editing={happened?.editing ?? null}

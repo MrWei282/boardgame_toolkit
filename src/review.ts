@@ -6,20 +6,25 @@ import type { Alignment, GameConfig, RoleId, ScriptConfig } from './types'
 
 /**
  * The default alignment a role implies, used only to *prefill* the truth toggle —
- * the user can override it for a swap/misregistration. BotC teams collapse to two
- * sides: an `evil` tone is evil, everything else (townsfolk green, outsider blue)
- * is good. A game with more than two sides makes this config-driven later.
+ * the user can override it for a swap/misregistration. Read straight off the
+ * role's team now that alignment is config (was derived from the tone colour).
  */
 export function roleAlignment(game: GameConfig, script: ScriptConfig, roleId: RoleId): Alignment {
   const role = getRole(script, roleId)
-  const tone = role ? getTeam(game, role.team)?.tone : undefined
-  return tone === 'evil' ? 'evil' : 'good'
+  return (role ? getTeam(game, role.team)?.alignment : undefined) ?? 'good'
 }
 
-/** My alignment read vs what they actually were. `made` is false at lean 0. */
-export function scoreRead(lean: number, actual: Alignment): { made: boolean; correct: boolean } {
-  if (lean === 0) return { made: false, correct: false }
-  return { made: true, correct: (lean > 0 ? 'good' : 'evil') === actual }
+/**
+ * My alignment read vs what they actually were. `lean` is `null` when I never
+ * read the player (no ReadTag) — that's the only "not made" case. A read I *did*
+ * make maps to a side, including lean 0 → `neutral`: reading someone as a third
+ * party is a real call, scored correct only if they actually ended neutral. So
+ * "read them neutral, they were neutral" ticks, while "never read them" doesn't.
+ */
+export function scoreRead(lean: number | null, actual: Alignment): { made: boolean; correct: boolean } {
+  if (lean === null) return { made: false, correct: false }
+  const side: Alignment = lean > 0 ? 'good' : lean < 0 ? 'evil' : 'neutral'
+  return { made: true, correct: side === actual }
 }
 
 /** My role guess(es) vs the actual role. `made` is false when I never guessed. */

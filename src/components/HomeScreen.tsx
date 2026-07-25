@@ -1,6 +1,7 @@
 import { useState } from 'react'
-import { getScript } from '../config'
-import { phaseLabel, useSessions, useStore } from '../store'
+import { getGame, getScript } from '../config'
+import { phaseLabel } from '../projections'
+import { useSessions, useStore } from '../store'
 import type { Session } from '../types'
 import { Sheet } from './Sheet'
 
@@ -100,7 +101,7 @@ function GameRow({ session, onOpen }: { session: Session; onOpen: () => void }) 
           </span>
         </div>
         <div className="mt-0.5 text-[11px] text-muted">
-          {session.players.length} players · {phaseLabel(session.round, session.phase)} · {timeLabel(session.createdAt)}
+          {session.players.length} players · {phaseLabel(getGame(session.gameId), session.round, session.phase)} · {timeLabel(session.createdAt)}
         </div>
       </button>
 

@@ -1,0 +1,16 @@
+{
+  "id": "avalon-base",
+  "gameId": "avalon",
+  "name": "Base + common roles",
+  "roles": [
+    { "id": "merlin", "name": "Merlin", "team": "loyal" },
+    { "id": "percival", "name": "Percival", "team": "loyal" },
+    { "id": "loyal-servant", "name": "Loyal Servant", "team": "loyal" },
+
+    { "id": "assassin", "name": "Assassin", "team": "minion" },
+    { "id": "morgana", "name": "Morgana", "team": "minion" },
+    { "id": "mordred", "name": "Mordred", "team": "minion" },
+    { "id": "oberon", "name": "Oberon", "team": "minion" },
+    { "id": "minion", "name": "Minion of Mordred", "team": "minion" }
+  ]
+}

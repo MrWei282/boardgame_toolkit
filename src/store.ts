@@ -1,7 +1,38 @@
 import { create } from 'zustand'
+import { getGame } from './config'
 import { loadAll, saveAll, VERSION } from './storage'
-import type { Assertion, GameEvent, Phase, PlayerId, ReadTag, Reveal, RoleId, RoleTag, Session } from './types'
+import type { Assertion, GameConfig, GameEvent, Phase, PlayerId, ReadTag, Reveal, RoleId, RoleTag, Session } from './types'
 import { uid } from './uid'
+
+/** The phase a game opens on: its first setup phase, or the first cycle phase. */
+function openingPhase(game: GameConfig): { round: number; phase: Phase } {
+  const setup = game.phases.setup ?? []
+  return setup.length ? { round: 0, phase: setup[0].id } : { round: 1, phase: game.phases.cycle[0].id }
+}
+
+/**
+ * Step one phase forward (`dir` 1) or back (`dir` -1) through a game's structure:
+ * within setup, from setup into the cycle, and around the repeating cycle. The
+ * clock never steps back past the opening phase. Replaces the old hardcoded
+ * night↔day toggle so any game's phase list works.
+ */
+function stepPhase(game: GameConfig, round: number, phase: Phase, dir: 1 | -1): { round: number; phase: Phase } {
+  const setup = game.phases.setup ?? []
+  const cycle = game.phases.cycle
+  if (round === 0) {
+    const i = setup.findIndex((p) => p.id === phase)
+    if (dir === 1) return i < setup.length - 1 ? { round: 0, phase: setup[i + 1].id } : { round: 1, phase: cycle[0].id }
+    return i > 0 ? { round: 0, phase: setup[i - 1].id } : { round, phase } // at the opening
+  }
+  const j = Math.max(0, cycle.findIndex((p) => p.id === phase))
+  if (dir === 1) {
+    return j < cycle.length - 1 ? { round, phase: cycle[j + 1].id } : { round: round + 1, phase: cycle[0].id }
+  }
+  if (j > 0) return { round, phase: cycle[j - 1].id }
+  if (round > 1) return { round: round - 1, phase: cycle[cycle.length - 1].id }
+  if (setup.length) return { round: 0, phase: setup[setup.length - 1].id }
+  return { round, phase } // at the opening, no setup to fall back to
+}
 
 type NewAssertion = {
   speaker: PlayerId
@@ -47,12 +78,21 @@ type Store = {
   updateAssertion: (id: string, patch: Partial<Assertion>) => void
   deleteAssertion: (id: string) => void
   setRoleTag: (playerId: PlayerId, roleIds: RoleId[], at?: PhaseRef) => void
-  /** Stamp my alignment read on a player (append-only, latest wins). 0 clears it. */
-  setRead: (playerId: PlayerId, lean: number, at?: PhaseRef) => void
+  /**
+   * Stamp my alignment read on a player (append-only, latest wins). -2..+2; sign =
+   * evil/good, magnitude = confidence. lean 0 is a deliberate *neutral* read (a
+   * third-party call). `null` clears the read — appended as a `cleared` entry, not
+   * a delete, so a past phase still shows the earlier read.
+   */
+  setRead: (playerId: PlayerId, lean: number | null, at?: PhaseRef) => void
 
-  /** Log a nomination plus a vote per voter, in one entry. */
+  /**
+   * Log a nomination plus a vote per voter, in one entry. `nominees` is an array
+   * so a single-target lynch (BotC) and a multi-player team proposal (Avalon)
+   * share one path — the votes roll up under the nomination either way.
+   */
   addNomination: (
-    input: { nominator: PlayerId; nominee: PlayerId; relation: string; voteRelation: string; voters: PlayerId[]; note?: string },
+    input: { nominator: PlayerId; nominees: PlayerId[]; relation: string; voteRelation: string; voters: PlayerId[]; note?: string },
     at?: PhaseRef,
   ) => void
 
@@ -89,14 +129,16 @@ export const useStore = create<Store>()((set, get) => {
     },
 
     createSession: ({ gameId, scriptId, names }) => {
+      // A game opens on the first phase its config declares (setup night, or the
+      // first cycle phase) — no longer hardcoded to BotC's night 1.
+      const opening = openingPhase(getGame(gameId))
       const session: Session = {
         id: uid(),
         createdAt: Date.now(),
         gameId,
         scriptId,
-        // BotC opens on the first night, so that is where a session starts.
-        round: 1,
-        phase: 'night',
+        round: opening.round,
+        phase: opening.phase,
         players: names.map((name, i) => ({
           id: uid(),
           seat: i,
@@ -152,20 +194,12 @@ export const useStore = create<Store>()((set, get) => {
       void saveAll({ version: VERSION, currentSessionId: nextCurrent, sessions: next })
     },
 
-    // Phase order is night 1 -> day 1 -> night 2 -> day 2 ...
+    // Phase order comes from the game config now (see stepPhase).
     nextPhase: () =>
-      updateSession((s) =>
-        s.phase === 'night'
-          ? { ...s, phase: 'day' }
-          : { ...s, phase: 'night', round: s.round + 1 },
-      ),
+      updateSession((s) => ({ ...s, ...stepPhase(getGame(s.gameId), s.round, s.phase, 1) })),
 
     prevPhase: () =>
-      updateSession((s) => {
-        if (s.phase === 'day') return { ...s, phase: 'night' }
-        if (s.round <= 1) return s
-        return { ...s, phase: 'day', round: s.round - 1 }
-      }),
+      updateSession((s) => ({ ...s, ...stepPhase(getGame(s.gameId), s.round, s.phase, -1) })),
 
     addAssertion: (input, at) =>
       updateSession((s) => {
@@ -206,21 +240,21 @@ export const useStore = create<Store>()((set, get) => {
           phase,
           speaker: input.nominator,
           relation: input.relation,
-          targets: [input.nominee],
+          targets: input.nominees,
           note: input.note?.trim() || undefined,
           createdAt: base,
         }
-        // One vote assertion per voter, all targeting the nominee and linked to
-        // this nomination by parentId. They render rolled up under the nomination
-        // rather than as their own arrows. The parentId is what keeps two
-        // nominations of the same nominee in one phase from sharing votes.
+        // One vote assertion per voter, all carrying the same nominees and linked
+        // to this nomination by parentId. They render rolled up under the
+        // nomination rather than as their own arrows. The parentId is what keeps
+        // two nominations of the same target(s) in one phase from sharing votes.
         const votes: Assertion[] = input.voters.map((voter, i) => ({
           id: uid(),
           round,
           phase,
           speaker: voter,
           relation: input.voteRelation,
-          targets: [input.nominee],
+          targets: input.nominees,
           parentId: nomination.id,
           createdAt: base + 1 + i,
         }))
@@ -247,10 +281,12 @@ export const useStore = create<Store>()((set, get) => {
       updateSession((s) => {
         // Append-only like roleTags: changing my read writes a new entry rather
         // than mutating the old one, so the timeline shows what I thought back then.
+        // A null lean is a clear — recorded as a `cleared` entry for the same reason.
         const read: ReadTag = {
           id: uid(),
           playerId,
-          lean,
+          lean: lean ?? 0,
+          cleared: lean === null ? true : undefined,
           round: at?.round ?? s.round,
           phase: at?.phase ?? s.phase,
           createdAt: Date.now(),
@@ -326,11 +362,13 @@ export function latestRead(session: Session, playerId: PlayerId): ReadTag | unde
   return latest
 }
 
-/** My current alignment read on a player: -2..+2, 0 when unread. */
-export function currentRead(session: Session, playerId: PlayerId): number {
-  return latestRead(session, playerId)?.lean ?? 0
-}
-
-export function phaseLabel(round: number, phase: Phase): string {
-  return `${phase === 'day' ? 'Day' : 'Night'} ${round}`
+/**
+ * My current alignment read on a player as a value: -2..+2 (0 = a neutral read),
+ * or `null` when there is no read — either never read, or the latest entry cleared
+ * it. The three-way distinction is what lets the token show a neutral halo but
+ * nothing for no-read, and the post-mortem score a neutral read but skip no-read.
+ */
+export function currentReadValue(session: Session, playerId: PlayerId): number | null {
+  const t = latestRead(session, playerId)
+  return t && !t.cleared ? t.lean : null
 }

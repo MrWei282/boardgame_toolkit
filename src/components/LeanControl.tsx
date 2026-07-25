@@ -1,8 +1,10 @@
 import { LEAN_STEPS } from '../read'
 
 type Props = {
-  value: number
-  onChange: (lean: number) => void
+  /** Current read, or null when the player has never been read (nothing active). */
+  value: number | null
+  /** A lean to set, or null to clear (tapping the already-active segment). */
+  onChange: (lean: number | null) => void
 }
 
 // Whole literal class strings so Tailwind's scanner sees them. The extremes take a
@@ -29,7 +31,10 @@ function idleClass(lean: number): string {
 /**
  * A five-segment alignment read: certain evil → neutral → certain good. One tap
  * sets the read — reads are light enough that they don't warrant a sheet, and a
- * live discussion leaves no time to open one. Clearing is tapping neutral.
+ * live discussion leaves no time to open one. A never-read player shows nothing
+ * active; the middle segment is a deliberate *neutral* read (a third-party call),
+ * distinct from having no read at all — the post-mortem scores the two apart.
+ * Tapping the already-active segment clears the read (back to no read).
  */
 export function LeanControl({ value, onChange }: Props) {
   return (
@@ -41,7 +46,7 @@ export function LeanControl({ value, onChange }: Props) {
             key={step.lean}
             aria-label={step.label}
             aria-pressed={active}
-            onClick={() => onChange(step.lean)}
+            onClick={() => onChange(active ? null : step.lean)}
             className={[
               'flex-1 px-0.5 py-1.5 text-center text-[10px] leading-tight font-medium',
               i > 0 ? 'border-l border-line' : '',

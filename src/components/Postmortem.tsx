@@ -1,6 +1,6 @@
 import { getRole } from '../config'
 import { scoreGuess, scoreRead } from '../review'
-import { currentRead, currentRoleIds } from '../store'
+import { currentReadValue, currentRoleIds } from '../store'
 import type { ScriptConfig, Session } from '../types'
 
 /**
@@ -28,7 +28,8 @@ export function Postmortem({
   const rows = session.players.map((p) => {
     const t = truth.find((x) => x.playerId === p.id)
     const actualAlign = t?.alignment ?? 'good'
-    const lean = currentRead(session, p.id)
+    // null when never read or cleared — distinct from a deliberate neutral read (0).
+    const lean = currentReadValue(session, p.id)
     const guessed = currentRoleIds(session, p.id)
     const rs = scoreRead(lean, actualAlign)
     const gs = scoreGuess(guessed, t?.roleId)
@@ -63,7 +64,11 @@ export function Postmortem({
                 <span
                   className={[
                     'shrink-0 rounded px-1.5 py-0.5 text-[11px] font-medium',
-                    actualAlign === 'evil' ? 'bg-evil/15 text-evil' : 'bg-good/15 text-good',
+                    actualAlign === 'evil'
+                      ? 'bg-evil/15 text-evil'
+                      : actualAlign === 'neutral'
+                        ? 'bg-neutral/15 text-neutral'
+                        : 'bg-good/15 text-good',
                   ].join(' ')}
                 >
                   {role ?? actualAlign}
@@ -99,8 +104,9 @@ export function Postmortem({
   )
 }
 
-function readLabel(lean: number): string {
-  if (lean === 0) return 'no read'
+function readLabel(lean: number | null): string {
+  if (lean === null) return 'no read'
+  if (lean === 0) return 'neutral'
   const side = lean > 0 ? 'good' : 'evil'
   return Math.abs(lean) >= 2 ? `sure ${side}` : side
 }

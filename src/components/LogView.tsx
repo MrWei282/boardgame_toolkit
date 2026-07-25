@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { assertionParts } from '../describe'
-import { phaseFromRank, rankOf } from '../projections'
-import { phaseLabel, useStore } from '../store'
+import { FIRST_RANK, phaseFromRank, phaseLabel, rankOf } from '../projections'
+import { useStore } from '../store'
 import type { Assertion, GameConfig, GameEvent, ScriptConfig, Session } from '../types'
 import { AssertionText } from './AssertionText'
 import { EntryActions } from './EntryActions'
@@ -49,9 +49,9 @@ export function LogView({ session, game, script, highlightRank, onEditAssertion,
   const items: LogItem[] = [
     ...session.assertions
       .filter((a) => !rolledVoteIds.has(a.id))
-      .map((a): LogItem => ({ kind: 'assertion', at: a.createdAt, rank: rankOf(a.round, a.phase), pinned: !!a.pinned, data: a })),
+      .map((a): LogItem => ({ kind: 'assertion', at: a.createdAt, rank: rankOf(game, a.round, a.phase), pinned: !!a.pinned, data: a })),
     ...session.events.map(
-      (e): LogItem => ({ kind: 'event', at: e.createdAt, rank: rankOf(e.round, e.phase), pinned: !!e.pinned, data: e }),
+      (e): LogItem => ({ kind: 'event', at: e.createdAt, rank: rankOf(game, e.round, e.phase), pinned: !!e.pinned, data: e }),
     ),
   ]
 
@@ -68,8 +68,7 @@ export function LogView({ session, game, script, highlightRank, onEditAssertion,
   // Group by phase and render a section per phase from Night 1 up to the phase in
   // view — including empty ones — so the log reads uniformly and never jumps a
   // phase (e.g. a quiet Day 2 still shows between Night 2 and Night 3).
-  const FIRST = 2 // Night 1
-  const maxRank = Math.max(highlightRank ?? FIRST, ...items.map((i) => i.rank), FIRST)
+  const maxRank = Math.max(highlightRank ?? FIRST_RANK, ...items.map((i) => i.rank), FIRST_RANK)
   const byRank = new Map<number, LogItem[]>()
   for (const it of items) {
     const arr = byRank.get(it.rank)
@@ -81,7 +80,7 @@ export function LogView({ session, game, script, highlightRank, onEditAssertion,
     arr.sort((a, b) => Number(b.pinned) - Number(a.pinned) || b.at - a.at)
   }
   const ranks: number[] = []
-  for (let r = maxRank; r >= FIRST; r--) ranks.push(r)
+  for (let r = maxRank; r >= FIRST_RANK; r--) ranks.push(r)
 
   function renderRow(item: LogItem, highlight: boolean) {
     const struck = !!item.data.hidden
@@ -152,13 +151,13 @@ export function LogView({ session, game, script, highlightRank, onEditAssertion,
   return (
     <div>
       {ranks.map((rank) => {
-        const { round, phase } = phaseFromRank(rank)
+        const { round, phase } = phaseFromRank(game, rank)
         const group = byRank.get(rank) ?? []
         const highlight = highlightRank === rank
         return (
           <section key={rank} className="mt-3 first:mt-0">
             <div className="mb-1.5 text-[11px] tracking-wide text-muted uppercase">
-              {phaseLabel(round, phase)}
+              {phaseLabel(game, round, phase)}
             </div>
             {group.length > 0 ? (
               <ul className="space-y-1.5">{group.map((item) => renderRow(item, highlight))}</ul>

@@ -7,7 +7,17 @@ export type RoleId = string
 export type RelationId = string
 export type TeamId = string
 
-export type Phase = 'day' | 'night'
+/**
+ * A phase id — one of the ids a game's config declares in `phases`. Was a fixed
+ * `'day' | 'night'` union; now open so games can name their own (Avalon
+ * 'proposal'/'mission', etc.). The concrete set per game lives in
+ * `GameConfig.phases`; this stays a bare string so the log/projection code that
+ * only stores and compares phase ids needs no per-game typing.
+ */
+export type Phase = string
+
+/** One phase in a game's structure: an id plus how it's labelled. */
+export type PhaseDef = { id: Phase; label: string; short: string }
 
 /** A thing someone said. Always a public speech act in iteration 1. */
 export type Assertion = {
@@ -94,8 +104,12 @@ export type GameEvent = {
  * on where they sit, distinct from a role *guess* (that's RoleTag): "claims Empath
  * but I read them evil" is two channels, not one. Signed so a single scalar carries
  * both sides:
- *   lean < 0 → evil-leaning, lean > 0 → good-leaning, 0 → neutral / no read
+ *   lean < 0 → evil-leaning, lean > 0 → good-leaning, 0 → a *neutral* read
  *   magnitude is confidence (±1 a hunch, ±2 as sure as a read gets)
+ * Three distinct states: no ReadTag at all = never read; a tag with lean 0 = a
+ * deliberate neutral (third-party) read; a tag with `cleared` = the read was
+ * tapped off. The last is appended rather than deleting the tag so a past phase
+ * still shows the earlier read (same reason role guesses clear via an empty set).
  *
  * A node attribute conceptually, but stored append-only with a round stamp exactly
  * like RoleTag — the latest entry per player wins, and the history is what the
@@ -107,6 +121,8 @@ export type ReadTag = {
   id: string
   playerId: PlayerId
   lean: number
+  /** When true this entry clears the read (back to no-read); `lean` is ignored. */
+  cleared?: boolean
   round: number
   phase: Phase
   createdAt: number
@@ -120,8 +136,13 @@ export type PlayerState = {
   // No `alive` field — a player's life is derived from GameEvents (see projections.ts).
 }
 
-/** Which side a player actually ended on. Binary for BotC/Avalon/Werewolf. */
-export type Alignment = 'good' | 'evil'
+/**
+ * The coarse deduction axis every target game shares. `good`/`evil` are the two
+ * read poles (the signed read scalar runs between them); `neutral` is a third
+ * party that sits *off* the read scale — recorded at reveal, never a live read
+ * target (see read.ts / review.ts). A game maps each team to one of these.
+ */
+export type Alignment = 'good' | 'evil' | 'neutral'
 
 /**
  * Ground truth for one player at game end — what they *actually* were, entered in
@@ -204,6 +225,14 @@ export type RelationConfig = {
 export type TeamConfig = {
   id: TeamId
   name: string
+  /**
+   * Which side this team is on — drives reads and post-game scoring. Kept
+   * distinct from `tone` (colour) because the two genuinely diverge: BotC
+   * outsiders are aligned `good` but toned `blue` so the good-team groups read
+   * apart. A team can be `neutral` (Werewolf/Kraken third parties).
+   */
+  alignment: Alignment
+  /** Colour slot for tokens/labels (maps to a --color-* variable). */
   tone: Tone
 }
 
@@ -212,7 +241,14 @@ export type GameConfig = {
   name: string
   minPlayers: number
   maxPlayers: number
-  phases: Phase[]
+  /**
+   * Phase structure. `setup` runs once at game start (round 0) — Avalon's single
+   * opening night, Deception's one or two nights; omit or leave empty for a game
+   * with no distinct setup (BotC). `cycle` repeats every round from round 1 on
+   * (BotC `[night, day]`). Both are in *play order* — array order defines the
+   * phase order that `rankOf` keys off, which is why BotC lists night before day.
+   */
+  phases: { setup?: PhaseDef[]; cycle: PhaseDef[] }
   teams: TeamConfig[]
   relations: RelationConfig[]
 }

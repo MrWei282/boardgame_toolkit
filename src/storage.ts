@@ -1,7 +1,13 @@
 import { GAMES } from './config'
-import { rankOf } from './projections'
 import type { Assertion, Session } from './types'
 import { uid } from './uid'
+
+// Migrations run on old (v1/v2-era) data, which is always BotC night-then-day, so
+// they order phases with this frozen local rank rather than the live `rankOf` —
+// the live formula is config-driven and free to change without touching history.
+function legacyRank(round: number, phase: string): number {
+  return round * 2 + (phase === 'day' ? 1 : 0)
+}
 
 /**
  * The single swap point for persistence. Currently localStorage + a JSON blob;
@@ -88,7 +94,7 @@ function migrateV1toV2(old: Persisted): Persisted {
     })
 
     // Sort so aliveness derivation sees a sensible order after the bulk insert.
-    events.sort((a, b) => rankOf(a.round, a.phase) - rankOf(b.round, b.phase) || a.createdAt - b.createdAt)
+    events.sort((a, b) => legacyRank(a.round, a.phase) - legacyRank(b.round, b.phase) || a.createdAt - b.createdAt)
 
     sessions[id] = {
       ...session,

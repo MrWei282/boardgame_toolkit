@@ -1,6 +1,8 @@
-import { phaseFromRank, shortPhaseLabel } from '../projections'
+import { FIRST_RANK, phaseFromRank, shortPhaseLabel } from '../projections'
+import type { GameConfig } from '../types'
 
 type Props = {
+  game: GameConfig
   /** Rank of the game's current (live) phase. */
   currentRank: number
   /** Rank currently being viewed. */
@@ -20,10 +22,9 @@ type Props = {
  * There is no rewind that removes a phase with content — the game clock only
  * moves forward, and stepping back is offered only to undo an empty advance.
  */
-export function Timeline({ currentRank, viewRank, onSelect, onAdvance, onRetract, canRetract }: Props) {
-  const FIRST = 2 // Night 1
+export function Timeline({ game, currentRank, viewRank, onSelect, onAdvance, onRetract, canRetract }: Props) {
   const ranks: number[] = []
-  for (let r = FIRST; r <= currentRank; r++) ranks.push(r)
+  for (let r = FIRST_RANK; r <= currentRank; r++) ranks.push(r)
 
   const reviewing = viewRank < currentRank
 
@@ -31,7 +32,7 @@ export function Timeline({ currentRank, viewRank, onSelect, onAdvance, onRetract
     <div className="mt-3">
       <div className="flex items-center gap-1 overflow-x-auto pb-1">
         {ranks.map((r) => {
-          const { round, phase } = phaseFromRank(r)
+          const { round, phase } = phaseFromRank(game, r)
           const isView = r === viewRank
           const isLive = r === currentRank
           return (
@@ -47,7 +48,7 @@ export function Timeline({ currentRank, viewRank, onSelect, onAdvance, onRetract
               ].join(' ')}
               aria-current={isView ? 'true' : undefined}
             >
-              {shortPhaseLabel(round, phase)}
+              {shortPhaseLabel(game, round, phase)}
             </button>
           )
         })}

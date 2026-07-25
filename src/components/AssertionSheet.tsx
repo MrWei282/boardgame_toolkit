@@ -44,9 +44,10 @@ export function AssertionSheet({ open, onClose, session, game, script, at, editi
   }, [open, editing])
 
   const relation = game.relations.find((r) => r.id === relationId) ?? null
-  const deadIds = new Set(session.players.filter((p) => !isAlive(session, p.id)).map((p) => p.id))
-  // Voters are only collected for a fresh nomination; editing changes just the entry.
-  const collectsVotes = Boolean(relation?.collectsVotesAs) && !editing && targets.length === 1
+  const deadIds = new Set(session.players.filter((p) => !isAlive(game, session, p.id)).map((p) => p.id))
+  // Voters are only collected for a fresh nomination; editing changes just the
+  // entry. One nominee (BotC lynch) or several (an Avalon team proposal) both count.
+  const collectsVotes = Boolean(relation?.collectsVotesAs) && !editing && targets.length >= 1
 
   function close() {
     onClose()
@@ -83,11 +84,11 @@ export function AssertionSheet({ open, onClose, session, game, script, at, editi
         roles: roles.length ? roles : undefined,
         note: note.trim() || undefined,
       })
-    } else if (relation.collectsVotesAs && targets.length === 1) {
+    } else if (relation.collectsVotesAs && targets.length >= 1) {
       addNomination(
         {
           nominator: speaker,
-          nominee: targets[0],
+          nominees: targets,
           relation: relation.id,
           voteRelation: relation.collectsVotesAs,
           voters,

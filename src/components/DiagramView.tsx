@@ -2,7 +2,7 @@ import { useState } from 'react'
 import { getRole, getTeam } from '../config'
 import { assertionParts } from '../describe'
 import { isAlive } from '../projections'
-import { currentRead, currentRoleIds, useStore } from '../store'
+import { currentReadValue, currentRoleIds, useStore } from '../store'
 import { toneChip, toneText } from '../tone'
 import type { GameConfig, GameEvent, Phase, PlayerId, ScriptConfig, Session } from '../types'
 import type { Assertion } from '../types'
@@ -114,7 +114,7 @@ export function DiagramView({ session, game, script, onTagPlayer, onEditAssertio
           <div className="flex items-center justify-between">
             <div className="text-sm font-semibold">
               {focused.name}
-              {!isAlive(session, focused.id) && (
+              {!isAlive(game, session, focused.id) && (
                 <span className="ml-2 rounded bg-evil/15 px-1.5 py-0.5 text-[11px] font-medium text-evil">
                   💀 Dead
                 </span>
@@ -158,7 +158,7 @@ export function DiagramView({ session, game, script, onTagPlayer, onEditAssertio
             <span className="shrink-0 text-[11px] text-muted">My read</span>
             <div className="flex-1">
               <LeanControl
-                value={currentRead(session, focused.id)}
+                value={currentReadValue(session, focused.id)}
                 onChange={(lean) => setRead(focused.id, lean, at)}
               />
             </div>
