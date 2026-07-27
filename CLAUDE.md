@@ -34,12 +34,32 @@ settles most "where does this go" questions.
 Input is `[speaker] · [relation] · [target]` in as few taps as possible. Dragging
 arrows may come later as an option. Input speed is the hard problem of this
 project — during a live discussion phase the user has ~3 seconds of spare
-attention, and looking at a phone at the table is itself a tell.
+attention, and looking at a phone at the table is itself a tell. The fastest path
+found so far (6.5, from real play): **tap the player, then the action** — the
+centered token card leads with quick-record. Watch for chances to shave taps.
 
-**Games are config, not code.**
-Two layers: `game.json` (player count range, phase structure, relation vocabulary)
-and `script.json` (role list), where script extends game. This is what makes the
-tool generalisable beyond BotC and lets scripts be amended without code changes.
+**Games are config, not code.** (Fully realised in iteration 6, validated by Avalon.)
+Two layers: `game.json` (player range, phase structure, teams, relation vocabulary)
+and `script.json` (role list, extends a game via `gameId`). Both live in `src/config/`
+and are registered in `config/index.ts`. Key shapes (see `types.ts`):
+- `GameConfig.phases: { setup?: PhaseDef[]; cycle: PhaseDef[] }` — `setup` runs once
+  at game start (round 0; Avalon's opening night), `cycle` repeats every round from 1
+  (BotC `[night, day]`). `PhaseDef = { id, label, short }`, in *play order* (array
+  order is the phase order `rankOf` keys off). Ranks are computed, never stored.
+- `TeamConfig` carries **`alignment`** (good/evil/neutral — the deduction axis, drives
+  reads/scoring) **separately from `tone`** (a colour slot). They genuinely diverge:
+  BotC outsiders are `alignment: good` but `tone: blue`; minions `tone: purple`, demons
+  `tone: evil` (red). `roleAlignment` reads `team.alignment`.
+- `relations` is **optional** — omit it and the game inherits `DEFAULT_RELATIONS`
+  (`config/index.ts`: the generic vouch/accuse/nominate/vote/info, with the fiddly
+  vote roll-up wiring). `withDefaults()` fills it on every game entering the registry,
+  so a config is usually just teams + roles + phases + players. A game overrides only
+  when it needs a different vocabulary.
+- **Users can import their own config.** `importConfigText` (paste a game / script /
+  `{game,script}` bundle) runs it through `validate.ts` (never throws; path-prefixed
+  errors) and, only if clean, registers it via `custom.ts` (own localStorage key,
+  read synchronously at module load so `getGame` sees it on first render). Built-in
+  ids can't be overwritten; a custom game with saved sessions can't be removed.
 
 **Fixed circular layout — do not use a graph layout library.**
 Players sit in a circle and seat order is game-critical in BotC (Empath, Chef,
@@ -50,8 +70,9 @@ quadratic bezier SVG paths. Hand-rolled, ~150 lines.
 ## Stack
 
 - Vite + React + TypeScript, Tailwind, Zustand
-- **No backend.** Static files, deployed to Cloudflare Pages. Offline-first —
-  game venues have bad wifi.
+- **No backend.** Static files, deployed as a Cloudflare **Worker** (serves `dist/`
+  as an SPA; `wrangler.jsonc`, name `boardgame-toolkit`) — **auto-deploys on push to
+  `main`**. Offline-first — game venues have bad wifi.
 - Storage: `localStorage` + JSON blob for now, behind a one-file `storage.ts`
   boundary so swapping to IndexedDB/Dexie later is contained.
 - PWA via `vite-plugin-pwa`
@@ -63,18 +84,22 @@ live server, kills offline-first), Streamlit (not a PWA, re-runs on interaction)
 ## Data model
 
 ```ts
+// Phase, RelationId, RoleId, TeamId are all `string` ids the game's config declares
+// (they were fixed unions early on; opened up in iteration 6 — see "Games are config").
+
 type Assertion = {
   id: string
   round: number
-  phase: 'day' | 'night'
+  phase: Phase            // a phase id from the game's config (`night`, `mission`, …)
   speaker: PlayerId
-  relation: 'vouch' | 'accuse' | 'nominate' | 'vote' | 'info'
-  targets: PlayerId[]     // UI writes 1 for now; array is load-bearing (see below)
+  relation: RelationId    // an id from the game's relations (or the default set)
+  targets: PlayerId[]     // load-bearing array — multi-target vouch/accuse/nominate
   roles?: RoleId[]        // empty for vote/nominate
   note?: string           // the quote / evidence
   hidden?: boolean        // struck: reversible, excluded from ALL projections
   pinned?: boolean        // starred: floats to top of its phase group in the log
   parentId?: string       // vote → its nomination; the roll-up matches on this
+  createdAt: number       // tiebreak within a phase; also orders life events
 }
 
 type RoleTag = {          // append-only; UI shows the latest *entry* per player
@@ -82,36 +107,47 @@ type RoleTag = {          // append-only; UI shows the latest *entry* per player
   playerId: PlayerId
   roleIds: RoleId[]       // simultaneous guesses, equal weight, no priority order
   round: number
-  phase: 'day' | 'night'
+  phase: Phase
+  createdAt: number
 }
 
 type ReadTag = {          // my alignment read; append-only, latest entry wins
   id: string
   playerId: PlayerId
-  lean: number            // -2..+2; sign = evil/good, magnitude = confidence, 0 = none
+  lean: number            // -2..+2; sign = evil/good, magnitude = confidence
+  cleared?: boolean       // this entry clears the read (back to "no read"); see below
   round: number
-  phase: 'day' | 'night'
+  phase: Phase
+  createdAt: number
 }
 
 type GameEvent = {         // things that happened, as opposed to things said
   id: string
   round: number
-  phase: 'day' | 'night'
+  phase: Phase
   label: string            // free text: "Executed", "Died at night", "Quest failed"
   subjects: PlayerId[]     // who it touched
   setsAlive?: boolean      // undefined = no life effect; false = dies; true = revives
   note?: string
   hidden?: boolean         // same strike/pin semantics as Assertion
   pinned?: boolean
+  createdAt: number
 }
 
 type PlayerState = { id: PlayerId; seat: number; name: string }  // no `alive` — derived
 
+type Alignment = 'good' | 'evil' | 'neutral'  // the shared deduction axis
+
 type Reveal = {              // end-of-game ground truth, one per player
   playerId: PlayerId
   roleId?: RoleId            // actual role — optional; the alignment is the core input
-  alignment: 'good' | 'evil' // stored EXPLICITLY, not derived — swaps/misregistration
+  alignment: Alignment       // stored EXPLICITLY, not derived — swaps/misregistration
 }
+
+// Session = { id, createdAt, endedAt?, gameId, scriptId, round, phase, players[],
+//   assertions[], roleTags[], reads[], events[], truth?: Reveal[] }. Storage is v3
+// (localStorage, migrations chain v1→v2→v3). Iteration 6 added no schema version —
+// new config lives outside the session blob (see custom config below).
 ```
 
 Notes on why it looks like this:
@@ -140,6 +176,13 @@ Notes on why it looks like this:
   re-nomination duplicated the count. A vote can't be tied to a nomination without
   the link, so `parentId` is load-bearing, not speculative. `storage.ts` v3 backfills
   it on old votes (best-effort; that historical case is exactly the ambiguous one).
+  *(6.5)* **Nomination is its own entry category** — the game's nomination is whichever
+  relation has `collectsVotesAs`, and it gets a dedicated `NominationSheet` (create +
+  edit) instead of hiding in the generic relation picker; the bottom bar is two levels
+  (Speech / Nomination / Event). `addNomination` takes `nominees[]` (one for a BotC
+  lynch, several for an Avalon team proposal) and `updateNomination` reconciles the
+  vote children on edit (add/drop/keep) — which fixed the bug where a nomination's
+  edit couldn't change its votes. Nomination only appears when a game collects votes.
 - **Gotcha — `opacity`/`transform`/`filter`/`backdrop-filter` creates a containing
   block *and* a stacking context.** Two bites: (1) a struck row dimmed with
   `opacity-45` trapped the entry menu's fixed popover below the bottom bar's
@@ -169,37 +212,43 @@ Notes on why it looks like this:
   "not vouch" / "not accuse" overlap into mush. Polarity returns later as a property
   of specific script-level *info* relations (Fortune Teller yes/no), not of every
   assertion.
-- **The suspicion primitive is `ReadTag` (stage 4, shipped), not an `unspoken`
-  flag or an edge.** A subjective read — "I think P3 is evil" — has no second
-  endpoint, so it is a node attribute, not an arrow. It is stored append-only with a
-  round stamp *exactly like `RoleTag`* (latest entry per player wins, projected by
-  rank) — conceptually a node attribute, implementationally a projected log, so the
-  stage-5 post-mortem gets read history for free. It's a single signed `lean` scalar,
-  deliberately: sign is the good↔evil axis (hardcoded for now — fine for BotC's binary
-  alignment; a multi-team game makes it config-driven), magnitude is confidence. A
-  read and a role *guess* are orthogonal channels and can disagree ("claims Empath,
-  I read them evil"). `speaker` stays a plain PlayerId; no `'ME'` value reserved.
-  `latestRead`/`currentRead` are near-twins of the RoleTag selectors — fold them
-  together only if a third append-only-latest tag appears.
+- **The suspicion primitive is `ReadTag` (stage 4), not an `unspoken` flag or an
+  edge.** A subjective read has no second endpoint, so it is a node attribute, not an
+  arrow. Stored append-only with a round stamp *exactly like `RoleTag`* (latest entry
+  per player wins, projected by rank), so the post-mortem gets read history for free.
+  A read and a role *guess* are orthogonal channels and can disagree ("claims Empath,
+  I read them evil"). It's a signed `lean` scalar, magnitude = confidence. **The read
+  has three states** (iteration 6.5): *no `ReadTag`* = never read; *a tag at lean 0* =
+  a deliberate **neutral** read (a third-party call — yellow dashed halo); *a tag with
+  `cleared`* = tapped off. `currentReadValue()` resolves these to `number | null`
+  (null = no halo, unscored); clearing appends a `cleared` tag rather than deleting
+  (append-only preserved, like role guesses clearing via an empty set). `LeanControl`
+  taps-active-to-clear; `scoreRead(number | null, actual)` scores 3-way. The good↔evil
+  poles are still hardcoded (fine for the binary axis all target games share).
 - **`Reveal.alignment` is stored, not derived from the role.** The post-mortem
-  scores my read (a good/evil lean) against what a player *actually ended as*, and
-  in BotC that can differ from the role's default team (a good player turned evil, a
-  Recluse registering evil). Deriving alignment from `roleId` would score exactly
-  those cases wrong. Picking a role only *prefills* the toggle (`roleAlignment` in
-  `review.ts`, a tone heuristic); the user can override. The post-mortem itself is a
-  pure projection — final `ReadTag`/`RoleTag` vs `truth`, no stored score
-  (`review.ts` holds the math so the entry and scorecard views agree).
+  scores my read against what a player *actually ended as*, which can differ from the
+  role's default team (a good player turned evil, a Recluse registering evil, a role
+  that becomes a neutral third party). Deriving alignment from `roleId` would score
+  those wrong. Picking a role only *prefills* the toggle (`roleAlignment` reads
+  `team.alignment` now); the user can override — the truth toggle is three-way
+  (good/neutral/evil). A player who ended `neutral` is off the good↔evil read axis, so
+  `scoreRead` leaves that read unscored rather than counting it wrong. The post-mortem
+  is a pure projection (`review.ts` holds the math so entry and scorecard agree).
 
 ## Rendering rules
 
-- Diagram draws edges for `edge: true` relations only: vouch (green), accuse (red),
-  nominate (neutral). Info and vote never draw an edge — info renders on the token,
-  votes roll up under their nomination. Outsiders are blue, distinct from townsfolk
-  green (a `blue` tone; team colour will move to config later).
-- Info renders beside the **speaker's** token. In focus mode, show every assertion
-  *involving* the tapped player — as speaker or as target. One filter, no extra data.
-- Role guesses render as N equal wedges on the token. ~2–3 are legible at 15 players
-  on a phone; past that use a count badge with the full list in focus mode.
+- Diagram draws arrows for `edge: true` relations: vouch (green), accuse (red),
+  nominate (neutral/yellow), and — since 6.5 — **info** (blue). A self-directed entry
+  (a role *claim*, speaker == target) draws no self-loop: `deriveEdges` skips
+  `target === speaker`. Votes never draw an edge — they roll up under their
+  nomination. **Relations can be toggled off** the diagram from the legend
+  (`hiddenRelations` in `DiagramView`, filtering `deriveEdges`) to declutter when
+  several colours fly at once. Team colour is config now (`tone`): townsfolk green,
+  outsider blue, minion **purple**, demon **red** (`purple` tone added in 6.5 so the
+  two evil teams read apart — distinct hues, colourblind-friendlier than two reds).
+- Role guesses render as N equal team-toned wedges on the token, **and (6.5) as text
+  under the player's name label** for quick glance (the wedges stay the colour cue).
+  ~2–3 wedges are legible at 15 players; past that a count badge + the focus card.
 - **The token has four distinct visual channels, deliberately kept apart** so a
   player whose alignment/role swaps mid-game still reads cleanly: *wedge fills* =
   role guesses (team-toned); *outer halo ring* = my alignment read (green/red by
@@ -213,6 +262,14 @@ Notes on why it looks like this:
   sheets) — no `†` marker.
 - Focus mode is the working view, not the full graph: tap a player, dim the rest,
   show only their edges. A full 15-player arrow graph is unreadable on a phone.
+- **Tapping a player opens a centered card** (6.5; `createPortal`, tap-out to close),
+  not the old below-the-diagram panel that made you scroll. It leads with **quick
+  record** — the intuitive "tap the player, then the action" — with a button per
+  non-nomination relation plus Nominate and Event, each opening the matching sheet
+  pre-filled with that player (`presetSpeaker`/`presetRelation` on `AssertionSheet`,
+  `presetNominator` on `NominationSheet`, `presetSubject` on `EventSheet`). Below that:
+  role guesses, the read control, and the log entries involving them. Input speed is
+  *the* hard problem here, and starting from the token is the fastest path found so far.
 - **Diagram zoom is a ring *spread*, not a magnify.** It grows the ring radius so
   seats move apart while tokens keep their size — crowded arrows get real gap.
   Implemented by scaling `ringR` (tokens fixed) and rendering the SVG larger than
@@ -249,9 +306,22 @@ Ship one stage at a time; do not build a large prototype in one go.
    *explicit* alignment) and a read-vs-reality post-mortem scorecard, both on a
    "Review" tab that only appears once a game is finished. Both fields are optional
    and absent-tolerant, so still no migration (schema stays v3).
-6. Second game (Werewolf or Deception) — the real test of the config abstraction.
-   Expect to refactor.
-7. Accounts, cloud sync, sharing.
+6. **Done** — Config generalisation, validated by a real second game (**Avalon**).
+   The abstraction held: adding Avalon was two JSON files + one small generalisation
+   (`addNomination` nominee → `nominees[]`). Phases became `{ setup?, cycle }`;
+   alignment gained `neutral` and split from `tone`; relations became optional with a
+   default set; **custom `game.json`/`script.json` can be pasted in** (validated by
+   `validate.ts`, stored by `custom.ts`). Reads gained a real neutral state.
+6.5 **Done** — UX polish from the first live game night: info draws arrows + a
+   per-relation hide toggle; role guesses shown as text under names; **nomination is
+   its own entry category** (dedicated sheet, editable votes — fixed a real bug); a
+   **centered tap-a-player card with quick-record**; entry buttons renamed/recoloured
+   (Speech / Nomination / Event); default table size = range midpoint; minion purple /
+   demon red. All merged to `main` and deployed.
+7. **Next** — Accounts, cloud sync, sharing. (Deferred threads to consider folding in:
+   a user colour-customisation / colourblind palette — proposed, not built; approve/
+   reject vote *outcomes*; the post-mortem showing *when* a read turned right from the
+   append-only read history; another pass on the diagram zoom UI.)
 
 Explicitly out of scope: multi-player shared sessions (turns a note-taking need
 into a distributed-consistency problem), Storyteller/moderator features (crowded
