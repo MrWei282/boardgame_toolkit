@@ -14,6 +14,8 @@ type Props = {
   focusedId: PlayerId | null
   onTokenTap: (id: PlayerId) => void
   onBackgroundTap: () => void
+  /** Relation ids whose arrows are toggled off (declutter when several fly at once). */
+  hiddenRelations?: Set<string>
 }
 
 const BASE_RING_R = 132
@@ -36,6 +38,7 @@ const toneVar: Record<Tone, string> = {
   neutral: 'var(--color-neutral)',
   info: 'var(--color-info)',
   blue: 'var(--color-blue)',
+  purple: 'var(--color-purple)',
 }
 
 export function SeatCircle({
@@ -45,6 +48,7 @@ export function SeatCircle({
   focusedId,
   onTokenTap,
   onBackgroundTap,
+  hiddenRelations,
 }: Props) {
   const n = session.players.length
   // Token size is fixed by the table size (so neighbours never touch at spread 1);
@@ -78,7 +82,9 @@ export function SeatCircle({
     centres.set(p.id, seatPoint(p.seat, n, CENTER.x, CENTER.y, ringR))
   })
 
-  const edges = deriveEdges(session, game)
+  // Hidden relations drop out entirely — including from focus lighting — so toggling
+  // one off truly declutters rather than just greying its arrows.
+  const edges = deriveEdges(session, game).filter((e) => !hiddenRelations?.has(e.relation))
   const lit = focusedId ? neighboursOf(edges, focusedId) : null
 
   const baseBow = tokenR * 0.9
@@ -383,20 +389,38 @@ export function SeatCircle({
               // A dead token shows 💀 where its number was, so carry the seat number
               // here instead. Living labels are just the name.
               const shortName = p.name.length > 8 ? p.name.slice(0, 7) + '…' : p.name
+              const displayName = alive ? shortName : `${p.seat + 1} ${shortName}`
+              // My current role guess(es), spelled out under the name — quick-glance
+              // reading matters more at the table than decoding the wedge colours.
+              const roleIds = currentRoleIds(session, p.id)
+              const roleText = roleIds.map((id) => getRole(script, id)?.name ?? id).join(' / ')
+              const roleLabel = roleText.length > 20 ? roleText.slice(0, 19) + '…' : roleText
               return (
-                <text
-                  key={p.id}
-                  x={label.x}
-                  y={label.y}
-                  textAnchor={anchor}
-                  dominantBaseline="central"
-                  fontSize={12.5}
-                  fill={alive ? 'var(--color-ink)' : 'var(--color-muted)'}
-                  textDecoration={alive ? undefined : 'line-through'}
-                  style={{ opacity: dim }}
-                >
-                  {alive ? shortName : `${p.seat + 1} ${shortName}`}
-                </text>
+                <g key={p.id} style={{ opacity: dim }}>
+                  <text
+                    x={label.x}
+                    y={roleText ? label.y - 6 : label.y}
+                    textAnchor={anchor}
+                    dominantBaseline="central"
+                    fontSize={12.5}
+                    fill={alive ? 'var(--color-ink)' : 'var(--color-muted)'}
+                    textDecoration={alive ? undefined : 'line-through'}
+                  >
+                    {displayName}
+                  </text>
+                  {roleText && (
+                    <text
+                      x={label.x}
+                      y={label.y + 7}
+                      textAnchor={anchor}
+                      dominantBaseline="central"
+                      fontSize={9.5}
+                      fill="var(--color-muted)"
+                    >
+                      {roleLabel}
+                    </text>
+                  )}
+                </g>
               )
             })}
           </g>

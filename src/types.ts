@@ -184,7 +184,7 @@ export type Session = {
 // Teams and relations each choose one. Townsfolk are 'good' (green) and Outsiders
 // 'blue' so the two good-team groups read apart; later this becomes a per-team
 // colour in config rather than a fixed vocabulary here.
-export type Tone = 'good' | 'evil' | 'neutral' | 'info' | 'blue'
+export type Tone = 'good' | 'evil' | 'neutral' | 'info' | 'blue' | 'purple'
 
 export type RelationConfig = {
   id: RelationId

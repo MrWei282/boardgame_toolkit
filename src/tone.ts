@@ -9,6 +9,7 @@ export const toneText: Record<Tone, string> = {
   neutral: 'text-neutral',
   info: 'text-info',
   blue: 'text-blue',
+  purple: 'text-purple',
 }
 
 export const toneChip: Record<Tone, string> = {
@@ -17,6 +18,7 @@ export const toneChip: Record<Tone, string> = {
   neutral: 'bg-neutral/15 text-neutral border-neutral/40',
   info: 'bg-info/15 text-info border-info/40',
   blue: 'bg-blue/15 text-blue border-blue/40',
+  purple: 'bg-purple/15 text-purple border-purple/40',
 }
 
 export const toneSolid: Record<Tone, string> = {
@@ -25,4 +27,5 @@ export const toneSolid: Record<Tone, string> = {
   neutral: 'bg-neutral/25 text-neutral border-neutral',
   info: 'bg-info/25 text-info border-info',
   blue: 'bg-blue/25 text-blue border-blue',
+  purple: 'bg-purple/25 text-purple border-purple',
 }

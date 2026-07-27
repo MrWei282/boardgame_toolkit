@@ -32,7 +32,7 @@ const DEFAULT_RELATIONS: RelationConfig[] = [
   { id: 'accuse', label: 'Accuse', phrase: 'accuses', targets: 'many', roles: 'none', edge: true, tone: 'evil' },
   { id: 'nominate', label: 'Nominate', phrase: 'nominates', targets: 'one', roles: 'none', edge: true, tone: 'neutral', collectsVotesAs: 'vote' },
   { id: 'vote', label: 'Vote', phrase: 'votes for', targets: 'one', roles: 'none', edge: false, tone: 'neutral', internal: true },
-  { id: 'info', label: 'Info', phrase: 'gives info on', selfPhrase: 'claims', targets: 'many', roles: 'optional', edge: false, tone: 'info' },
+  { id: 'info', label: 'Info', phrase: 'gives info on', selfPhrase: 'claims', targets: 'many', roles: 'optional', edge: true, tone: 'info' },
 ]
 
 /** Fill in the default relations for a game that didn't declare its own. */

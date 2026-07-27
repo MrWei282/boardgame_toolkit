@@ -96,6 +96,17 @@ type Store = {
     at?: PhaseRef,
   ) => void
 
+  /**
+   * Edit a nomination in place, reconciling its vote children against the new
+   * voter list — add votes for new voters, drop votes for removed ones, and keep
+   * the rest pointing at the (possibly changed) nominees. This is what lets the
+   * edit sheet change the vote history, not just who/whom.
+   */
+  updateNomination: (
+    id: string,
+    input: { nominator: PlayerId; nominees: PlayerId[]; voteRelation: string; voters: PlayerId[]; note?: string },
+  ) => void
+
   addEvent: (input: NewEvent, at?: PhaseRef) => void
   updateEvent: (id: string, patch: Partial<GameEvent>) => void
   deleteEvent: (id: string) => void
@@ -259,6 +270,42 @@ export const useStore = create<Store>()((set, get) => {
           createdAt: base + 1 + i,
         }))
         return { ...s, assertions: [...s.assertions, nomination, ...votes] }
+      }),
+
+    updateNomination: (id, input) =>
+      updateSession((s) => {
+        const nomination = s.assertions.find((a) => a.id === id)
+        if (!nomination) return s
+        const wanted = new Set(input.voters)
+        const isChildVote = (a: Assertion) => a.parentId === id && a.relation === input.voteRelation
+        const existingVoters = new Set(s.assertions.filter(isChildVote).map((v) => v.speaker))
+
+        const kept = s.assertions
+          // Drop votes whose voter was removed.
+          .filter((a) => !(isChildVote(a) && !wanted.has(a.speaker)))
+          .map((a) => {
+            if (a.id === id)
+              return { ...a, speaker: input.nominator, targets: input.nominees, note: input.note?.trim() || undefined }
+            // Kept votes follow the nominees if those changed.
+            if (isChildVote(a)) return { ...a, targets: input.nominees }
+            return a
+          })
+
+        const base = Date.now()
+        const added: Assertion[] = input.voters
+          .filter((v) => !existingVoters.has(v))
+          .map((voter, i) => ({
+            id: uid(),
+            round: nomination.round,
+            phase: nomination.phase,
+            speaker: voter,
+            relation: input.voteRelation,
+            targets: input.nominees,
+            parentId: id,
+            createdAt: base + i,
+          }))
+
+        return { ...s, assertions: [...kept, ...added] }
       }),
 
     setRoleTag: (playerId, roleIds, at) =>

@@ -8,7 +8,7 @@ import type { Alignment, GameConfig, ScriptConfig, Tone } from '../types'
 
 export type Valid<T> = { ok: true; value: T } | { ok: false; errors: string[] }
 
-const TONES: Tone[] = ['good', 'evil', 'neutral', 'info', 'blue']
+const TONES: Tone[] = ['good', 'evil', 'neutral', 'info', 'blue', 'purple']
 const ALIGNMENTS: Alignment[] = ['good', 'evil', 'neutral']
 
 // --- small typed checks ------------------------------------------------------

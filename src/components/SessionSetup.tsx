@@ -16,6 +16,15 @@ function clamp(n: number, lo: number, hi: number): number {
   return Math.min(hi, Math.max(lo, n))
 }
 
+/**
+ * A game's default table size: the midpoint of its allowed range, rounded up.
+ * Always in [min, max] and sensible even for a tiny or single-value range —
+ * unlike a fixed default (8) that had to be clamped and could sit at an edge.
+ */
+function defaultCount(min: number, max: number): number {
+  return Math.ceil((min + max) / 2)
+}
+
 export function SessionSetup({ onCancel }: { onCancel: () => void }) {
   const createSession = useStore((s) => s.createSession)
   // Games with saved sessions can't be removed — a session whose config vanished
@@ -33,7 +42,7 @@ export function SessionSetup({ onCancel }: { onCancel: () => void }) {
   const scripts = scriptsForGame(gameId)
   const [scriptId, setScriptId] = useState(scripts[0]?.id ?? '')
 
-  const [count, setCount] = useState(() => clamp(8, game.minPlayers, game.maxPlayers))
+  const [count, setCount] = useState(() => defaultCount(game.minPlayers, game.maxPlayers))
   const maxSeats = Math.max(...games.map((g) => g.maxPlayers))
   const [names, setNames] = useState<string[]>(() => Array(maxSeats).fill(''))
 

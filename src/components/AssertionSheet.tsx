@@ -17,37 +17,34 @@ type Props = {
   at: { round: number; phase: Phase }
   /** When set, the sheet edits this entry in place instead of creating one. */
   editing?: Assertion | null
+  /** Pre-fill for a fresh entry started from a token's quick-record. */
+  presetSpeaker?: PlayerId | null
+  presetRelation?: string | null
 }
 
-export function AssertionSheet({ open, onClose, session, game, script, at, editing }: Props) {
+export function AssertionSheet({ open, onClose, session, game, script, at, editing, presetSpeaker, presetRelation }: Props) {
   const addAssertion = useStore((s) => s.addAssertion)
   const updateAssertion = useStore((s) => s.updateAssertion)
-  const addNomination = useStore((s) => s.addNomination)
 
   const [speaker, setSpeaker] = useState<PlayerId | null>(null)
   const [relationId, setRelationId] = useState<string | null>(null)
   const [targets, setTargets] = useState<PlayerId[]>([])
   const [roles, setRoles] = useState<RoleId[]>([])
-  const [voters, setVoters] = useState<PlayerId[]>([])
   const [note, setNote] = useState('')
 
   // Seed from the edited entry (or clear for a new one) each time the sheet opens.
   useEffect(() => {
     if (!open) return
-    setSpeaker(editing?.speaker ?? null)
-    setRelationId(editing?.relation ?? null)
+    setSpeaker(editing?.speaker ?? presetSpeaker ?? null)
+    setRelationId(editing?.relation ?? presetRelation ?? null)
     setTargets(editing?.targets ?? [])
     setRoles(editing?.roles ?? [])
     setNote(editing?.note ?? '')
-    setVoters([])
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [open, editing])
+  }, [open, editing, presetSpeaker, presetRelation])
 
   const relation = game.relations.find((r) => r.id === relationId) ?? null
   const deadIds = new Set(session.players.filter((p) => !isAlive(game, session, p.id)).map((p) => p.id))
-  // Voters are only collected for a fresh nomination; editing changes just the
-  // entry. One nominee (BotC lynch) or several (an Avalon team proposal) both count.
-  const collectsVotes = Boolean(relation?.collectsVotesAs) && !editing && targets.length >= 1
 
   function close() {
     onClose()
@@ -84,18 +81,6 @@ export function AssertionSheet({ open, onClose, session, game, script, at, editi
         roles: roles.length ? roles : undefined,
         note: note.trim() || undefined,
       })
-    } else if (relation.collectsVotesAs && targets.length >= 1) {
-      addNomination(
-        {
-          nominator: speaker,
-          nominees: targets,
-          relation: relation.id,
-          voteRelation: relation.collectsVotesAs,
-          voters,
-          note,
-        },
-        at,
-      )
     } else {
       addAssertion({ speaker, relation: relation.id, targets, roles, note }, at)
     }
@@ -132,7 +117,9 @@ export function AssertionSheet({ open, onClose, session, game, script, at, editi
           <SectionLabel n={2}>What they did</SectionLabel>
           <div className="flex flex-wrap gap-2">
             {game.relations
-              .filter((r) => !r.internal || r.id === editing?.relation)
+              // Internal relations (votes) and the nomination itself have their own
+              // flows, so they aren't offered here — except the one being edited.
+              .filter((r) => (!r.internal && !r.collectsVotesAs) || r.id === editing?.relation)
               .map((r) => (
               <button
                 key={r.id}
@@ -166,23 +153,6 @@ export function AssertionSheet({ open, onClose, session, game, script, at, editi
                 A player claiming their own role is themself as both speaker and target.
               </p>
             )}
-          </section>
-        )}
-
-        {collectsVotes && (
-          <section>
-            <SectionLabel>Who voted (optional)</SectionLabel>
-            <SeatGrid
-              players={session.players}
-              selected={voters}
-              onSelect={(id) =>
-                setVoters((prev) => (prev.includes(id) ? prev.filter((v) => v !== id) : [...prev, id]))
-              }
-              deadIds={deadIds}
-            />
-            <p className="mt-2 text-xs text-muted">
-              Votes roll up under the nomination instead of drawing their own arrows.
-            </p>
           </section>
         )}
 

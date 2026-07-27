@@ -12,6 +12,9 @@ type Props = {
   game: GameConfig
   /** Optional player to pre-select as the subject (from the Players tab). */
   presetSubject?: PlayerId | null
+  /** When opening on a preset subject, default the life effect to died/revived
+   *  (the Players tab 💀 control). A generic event leaves it at "no change". */
+  lifeEdit?: boolean
   /** Phase to record into — the phase currently being viewed. */
   at: { round: number; phase: Phase }
   /** When set, the sheet edits this event in place instead of creating one. */
@@ -32,7 +35,7 @@ function effectOf(setsAlive: boolean | undefined): LifeEffect {
   return setsAlive === false ? 'died' : setsAlive === true ? 'revived' : 'none'
 }
 
-export function EventSheet({ open, onClose, session, game, presetSubject, at, editing }: Props) {
+export function EventSheet({ open, onClose, session, game, presetSubject, lifeEdit, at, editing }: Props) {
   const addEvent = useStore((s) => s.addEvent)
   const updateEvent = useStore((s) => s.updateEvent)
 
@@ -52,7 +55,7 @@ export function EventSheet({ open, onClose, session, game, presetSubject, at, ed
       setNote(editing.note ?? '')
     } else if (presetSubject) {
       setSubjects([presetSubject])
-      setEffect(isAlive(game, session, presetSubject) ? 'died' : 'revived')
+      setEffect(lifeEdit ? (isAlive(game, session, presetSubject) ? 'died' : 'revived') : 'none')
       setLabel('')
       setNote('')
     } else {
@@ -62,7 +65,7 @@ export function EventSheet({ open, onClose, session, game, presetSubject, at, ed
       setNote('')
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [open, presetSubject, editing])
+  }, [open, presetSubject, lifeEdit, editing])
 
   const deadIds = new Set(session.players.filter((p) => !isAlive(game, session, p.id)).map((p) => p.id))
 

@@ -29,6 +29,9 @@ export function deriveEdges(session: Session, game: GameConfig): DerivedEdge[] {
     if (!relation.edge) continue
 
     for (const target of a.targets) {
+      // A self-directed entry (e.g. a role *claim*: speaker and target are the same
+      // player) has no second endpoint, so it draws no arrow — it lives on the token.
+      if (target === a.speaker) continue
       const key = `${a.speaker}|${a.relation}|${target}`
       const existing = merged.get(key)
       if (existing) {

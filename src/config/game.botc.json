@@ -12,7 +12,7 @@
   "teams": [
     { "id": "townsfolk", "name": "Townsfolk", "alignment": "good", "tone": "good" },
     { "id": "outsider", "name": "Outsider", "alignment": "good", "tone": "blue" },
-    { "id": "minion", "name": "Minion", "alignment": "evil", "tone": "evil" },
+    { "id": "minion", "name": "Minion", "alignment": "evil", "tone": "purple" },
     { "id": "demon", "name": "Demon", "alignment": "evil", "tone": "evil" }
   ]
 }
