@@ -5,8 +5,8 @@ the Clocktower). Log what people say as a structured event log and see it as a
 relationship diagram — a ring of seats with arrows for vouches, accusations,
 nominations and votes, plus role guesses on each token.
 
-It runs entirely in the browser. No backend, no account, works offline. See
-[CLAUDE.md](CLAUDE.md) for the design and data model.
+It runs entirely in the browser. No backend, no account, works offline.
+Try with: https://boardgame-toolkit.aw2822309062.workers.dev/
 
 ## Requirements
 
