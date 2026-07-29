@@ -4,8 +4,7 @@ import {
   DEFAULT_GAME_ID,
   getGame,
   importConfigText,
-  isBuiltinGame,
-  removeCustomGameConfig,
+  restoreDefaultConfigs,
   scriptsForGame,
   type ImportResult,
 } from '../config'
@@ -27,23 +26,22 @@ function defaultCount(min: number, max: number): number {
 
 export function SessionSetup({ onCancel }: { onCancel: () => void }) {
   const createSession = useStore((s) => s.createSession)
-  // Games with saved sessions can't be removed — a session whose config vanished
-  // would break the home list and the game screen (getGame throws by design).
-  const sessions = useStore((s) => s.sessions)
-  const gameIdsInUse = new Set(Object.values(sessions).map((s) => s.gameId))
 
-  // Bumped after an import/remove so the picker re-reads the (mutated) registries.
+  // Bumped after an import/restore so the picker re-reads the (mutated) registries.
+  // Managing/deleting configs lives in Settings now; this sheet only imports.
   const [configVersion, setConfigVersion] = useState(0)
   const games = allGames()
 
   const [gameId, setGameId] = useState(DEFAULT_GAME_ID)
-  const game = getGame(gameId)
+  // Games can all be deleted now (no privileged built-ins), so never assume the
+  // selected id still resolves — fall back to whatever remains, or undefined.
+  const game = games.find((g) => g.id === gameId) ?? games[0]
 
-  const scripts = scriptsForGame(gameId)
+  const scripts = game ? scriptsForGame(game.id) : []
   const [scriptId, setScriptId] = useState(scripts[0]?.id ?? '')
 
-  const [count, setCount] = useState(() => defaultCount(game.minPlayers, game.maxPlayers))
-  const maxSeats = Math.max(...games.map((g) => g.maxPlayers))
+  const [count, setCount] = useState(() => (game ? defaultCount(game.minPlayers, game.maxPlayers) : 0))
+  const maxSeats = games.length ? Math.max(...games.map((g) => g.maxPlayers)) : 0
   const [names, setNames] = useState<string[]>(() => Array(maxSeats).fill(''))
 
   const [importing, setImporting] = useState(false)
@@ -70,17 +68,54 @@ export function SessionSetup({ onCancel }: { onCancel: () => void }) {
     setConfigVersion((v) => v + 1)
     chooseGame(gid)
   }
-  function afterRemove() {
+
+  function restoreDefaults() {
+    restoreDefaultConfigs()
     setConfigVersion((v) => v + 1)
-    // Land on a built-in so a removed-while-selected game can't reach getGame.
     chooseGame(DEFAULT_GAME_ID)
   }
 
   function start() {
-    createSession({ gameId, scriptId, names: names.slice(0, count) })
+    if (!game) return
+    createSession({ gameId: game.id, scriptId, names: names.slice(0, count) })
   }
 
   const canStart = scripts.length > 0 && Boolean(scriptId)
+
+  // Every game can be deleted now, so handle the zero-games case rather than crash.
+  if (!game) {
+    return (
+      <div className="mx-auto flex min-h-dvh max-w-md flex-col px-4 pt-6 pb-[max(1rem,env(safe-area-inset-bottom))]">
+        <div className="flex items-center justify-between">
+          <h1 className="text-xl font-semibold">New session</h1>
+          <button
+            onClick={onCancel}
+            className="rounded-lg border border-line bg-raised px-3 py-1.5 text-xs text-muted active:bg-line"
+          >
+            Cancel
+          </button>
+        </div>
+        <div className="mt-16 rounded-xl border border-dashed border-line px-4 py-10 text-center">
+          <p className="text-sm text-muted">No games available — import one, or bring back the defaults.</p>
+          <div className="mt-4 flex flex-col gap-2">
+            <button
+              onClick={restoreDefaults}
+              className="w-full rounded-xl bg-info py-3 font-semibold text-bg active:opacity-80"
+            >
+              Restore default games
+            </button>
+            <button
+              onClick={() => setImporting(true)}
+              className="w-full rounded-xl border border-line bg-raised py-3 text-sm active:bg-line"
+            >
+              Import a game
+            </button>
+          </div>
+        </div>
+        <ImportSheet open={importing} onClose={() => setImporting(false)} onImported={afterImport} />
+      </div>
+    )
+  }
 
   return (
     <div
@@ -190,13 +225,7 @@ export function SessionSetup({ onCancel }: { onCancel: () => void }) {
         Start session
       </button>
 
-      <ImportSheet
-        open={importing}
-        onClose={() => setImporting(false)}
-        onImported={afterImport}
-        onRemoved={afterRemove}
-        gameIdsInUse={gameIdsInUse}
-      />
+      <ImportSheet open={importing} onClose={() => setImporting(false)} onImported={afterImport} />
     </div>
   )
 }
@@ -205,19 +234,13 @@ function ImportSheet({
   open,
   onClose,
   onImported,
-  onRemoved,
-  gameIdsInUse,
 }: {
   open: boolean
   onClose: () => void
   onImported: (gameId: string) => void
-  onRemoved: () => void
-  gameIdsInUse: Set<string>
 }) {
   const [text, setText] = useState('')
   const [result, setResult] = useState<ImportResult | null>(null)
-
-  const customGameList = allGames().filter((g) => !isBuiltinGame(g.id))
 
   function doImport() {
     const res = importConfigText(text)
@@ -228,19 +251,13 @@ function ImportSheet({
     }
   }
 
-  function remove(id: string) {
-    removeCustomGameConfig(id)
-    setResult(null)
-    onRemoved()
-  }
-
   return (
-    <Sheet open={open} onClose={onClose} title="Custom games">
+    <Sheet open={open} onClose={onClose} title="Import a game">
       <div className="space-y-3">
         <p className="text-xs text-muted">
           Paste a game (with <code>phases</code>), a script (with <code>roles</code>), or a{' '}
           <code>{'{ game, script }'}</code> bundle. It’s validated before it’s added — nothing is
-          saved if anything is wrong.
+          saved if anything is wrong. Manage or delete installed games in Settings.
         </p>
         <textarea
           value={text}
@@ -270,33 +287,6 @@ function ImportSheet({
         >
           Validate &amp; import
         </button>
-
-        {customGameList.length > 0 && (
-          <div className="border-t border-line pt-3">
-            <p className="mb-2 text-xs font-medium text-muted">Your imported games</p>
-            <ul className="space-y-1.5">
-              {customGameList.map((g) => {
-                const inUse = gameIdsInUse.has(g.id)
-                return (
-                  <li
-                    key={g.id}
-                    className="flex items-center gap-2 rounded-xl border border-line bg-surface px-3 py-2"
-                  >
-                    <span className="min-w-0 flex-1 truncate text-sm">{g.name}</span>
-                    {inUse && <span className="shrink-0 text-[11px] text-muted">has saved games</span>}
-                    <button
-                      onClick={() => remove(g.id)}
-                      disabled={inUse}
-                      className="shrink-0 rounded-lg border border-line px-2.5 py-1 text-xs text-muted active:bg-line disabled:opacity-30"
-                    >
-                      Remove
-                    </button>
-                  </li>
-                )
-              })}
-            </ul>
-          </div>
-        )}
       </div>
     </Sheet>
   )

@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { getGame, getScript } from '../config'
 import { phaseLabel } from '../projections'
+import { buildSessionBundle, bundleFilename, downloadText, serializeBundle } from '../share'
 import { useSessions, useStore } from '../store'
 import type { Session } from '../types'
 import { Sheet } from './Sheet'
@@ -8,6 +9,8 @@ import { Sheet } from './Sheet'
 type Props = {
   /** Open the new-session form. */
   onNewGame: () => void
+  /** Open the settings screen. */
+  onOpenSettings: () => void
 }
 
 /** Today / Yesterday / a short date, so the list reads as game-nights. */
@@ -30,7 +33,7 @@ function timeLabel(ts: number): string {
   return new Date(ts).toLocaleTimeString(undefined, { hour: '2-digit', minute: '2-digit' })
 }
 
-export function HomeScreen({ onNewGame }: Props) {
+export function HomeScreen({ onNewGame, onOpenSettings }: Props) {
   const sessions = useSessions()
   const openSession = useStore((s) => s.openSession)
 
@@ -47,12 +50,21 @@ export function HomeScreen({ onNewGame }: Props) {
     <div className="mx-auto min-h-dvh max-w-md px-4 pt-6 pb-[max(1rem,env(safe-area-inset-bottom))]">
       <div className="flex items-center justify-between">
         <h1 className="text-xl font-semibold">Games</h1>
-        <button
-          onClick={onNewGame}
-          className="rounded-xl bg-info px-4 py-2.5 text-sm font-semibold text-bg active:opacity-80"
-        >
-          + New game
-        </button>
+        <div className="flex items-center gap-2">
+          <button
+            onClick={onOpenSettings}
+            aria-label="Settings"
+            className="flex h-10 w-10 items-center justify-center rounded-xl border border-line bg-raised text-muted active:bg-line"
+          >
+            ⚙
+          </button>
+          <button
+            onClick={onNewGame}
+            className="rounded-xl bg-info px-4 py-2.5 text-sm font-semibold text-bg active:opacity-80"
+          >
+            + New game
+          </button>
+        </div>
       </div>
 
       {sessions.length === 0 ? (
@@ -115,6 +127,15 @@ function GameRow({ session, onOpen }: { session: Session; onOpen: () => void }) 
 
       <Sheet open={menu} onClose={() => setMenu(false)} title={script.name}>
         <div className="space-y-1.5">
+          <button
+            onClick={() => {
+              setMenu(false)
+              downloadText(bundleFilename(script.name), serializeBundle(buildSessionBundle(session)))
+            }}
+            className="w-full rounded-xl border border-line px-3 py-3 text-left text-sm text-ink active:bg-raised"
+          >
+            Export…
+          </button>
           <button
             onClick={() => {
               setMenu(false)

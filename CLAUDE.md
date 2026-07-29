@@ -38,10 +38,11 @@ attention, and looking at a phone at the table is itself a tell. The fastest pat
 found so far (6.5, from real play): **tap the player, then the action** — the
 centered token card leads with quick-record. Watch for chances to shave taps.
 
-**Games are config, not code.** (Fully realised in iteration 6, validated by Avalon.)
-Two layers: `game.json` (player range, phase structure, teams, relation vocabulary)
-and `script.json` (role list, extends a game via `gameId`). Both live in `src/config/`
-and are registered in `config/index.ts`. Key shapes (see `types.ts`):
+**Games are config, not code.** (Realised in iteration 6, validated by Avalon; made
+*literally* true in iteration 7 — see below.) Two layers: `game.json` (player range,
+phase structure, teams, relation vocabulary) and `script.json` (role list, extends a
+game via `gameId`). Both live in `src/config/` and are registered in `config/index.ts`.
+Key shapes (see `types.ts`):
 - `GameConfig.phases: { setup?: PhaseDef[]; cycle: PhaseDef[] }` — `setup` runs once
   at game start (round 0; Avalon's opening night), `cycle` repeats every round from 1
   (BotC `[night, day]`). `PhaseDef = { id, label, short }`, in *play order* (array
@@ -57,9 +58,23 @@ and are registered in `config/index.ts`. Key shapes (see `types.ts`):
   when it needs a different vocabulary.
 - **Users can import their own config.** `importConfigText` (paste a game / script /
   `{game,script}` bundle) runs it through `validate.ts` (never throws; path-prefixed
-  errors) and, only if clean, registers it via `custom.ts` (own localStorage key,
-  read synchronously at module load so `getGame` sees it on first render). Built-in
-  ids can't be overwritten; a custom game with saved sessions can't be removed.
+  errors) and, only if clean, registers it via the config store (`custom.ts`), read
+  synchronously at module load so `getGame` sees it on first render.
+- **There are no built-in games any more (iteration 7).** BotC/Avalon stopped being
+  privileged, compiled-in built-ins and became *seed data*. `config/defaults.ts` holds
+  the shipped JSON purely as a seed source; on first run `custom.ts` `seedDefaults`
+  copies them into the one config store (localStorage key `deduction-config-store`,
+  which also holds every imported config), tracking each seeded id in `seededIds`.
+  After that they are ordinary entries — editable, **deletable**, exportable like any
+  import; `GAMES`/`SCRIPTS` are just a `withDefaults`-applied projection of the store
+  (`rebuildRegistries` after every mutation). `seededIds` is what makes deletion
+  *stick*: a default whose id is already there is never auto-re-seeded, so removing
+  BotC survives a reload; a newly *shipped* default (id not in `seededIds`) seeds once.
+  `restoreDefaultConfigs()` re-adds the shipped defaults (the escape hatch when you've
+  deleted them all — `SessionSetup` shows it in a zero-games empty state). The only
+  surviving guard is integrity, not privilege: callers won't delete a config a saved
+  session references (`getGame` throws by design). `isBuiltinGame/Script` are **gone**.
+  Legacy note: the pre-7 `deduction-custom-configs` key is adopted once on first read.
 
 **Fixed circular layout — do not use a graph layout library.**
 Players sit in a circle and seat order is game-critical in BotC (Empath, Chef,
@@ -74,7 +89,12 @@ quadratic bezier SVG paths. Hand-rolled, ~150 lines.
   as an SPA; `wrangler.jsonc`, name `boardgame-toolkit`) — **auto-deploys on push to
   `main`**. Offline-first — game venues have bad wifi.
 - Storage: `localStorage` + JSON blob for now, behind a one-file `storage.ts`
-  boundary so swapping to IndexedDB/Dexie later is contained.
+  boundary so swapping to IndexedDB/Dexie later is contained. Two independent keys:
+  `deduction-notes` (the versioned session blob, v3) and `deduction-config-store` (all
+  games/scripts + `seededIds`; see "no built-in games"). `share.ts` is the portability
+  layer over both — a `Bundle` (kind `botc-toolkit/bundle`) carrying any subset of
+  sessions/configs/settings, exported to / imported from a JSON file (`parseBundle`
+  never throws; sessions import as a copy on id-collision, configs upsert).
 - PWA via `vite-plugin-pwa`
 - No accounts, no auth, no sync until stage 7.
 
@@ -318,10 +338,29 @@ Ship one stage at a time; do not build a large prototype in one go.
    **centered tap-a-player card with quick-record**; entry buttons renamed/recoloured
    (Speech / Nomination / Event); default table size = range midpoint; minion purple /
    demon red. All merged to `main` and deployed.
-7. **Next** — Accounts, cloud sync, sharing. (Deferred threads to consider folding in:
-   a user colour-customisation / colourblind palette — proposed, not built; approve/
-   reject vote *outcomes*; the post-mortem showing *when* a read turned right from the
-   append-only read history; another pass on the diagram zoom UI.)
+7. **In progress — Portability & modular configs (no backend).** Accounts / cloud
+   sync were considered and **dropped** for a hobby project — with no backend, file
+   export/import *is* the multi-device and sharing story. Sub-iterations:
+   - *7.0a* **Done** — modular config store: BotC/Avalon are seed data, every config
+     deletable/editable/exportable (see "no built-in games"). `defaults.ts` +
+     rewritten `custom.ts`/`index.ts`; `SessionSetup` handles zero games + restore.
+   - *7.0b* **Done** — portability: `share.ts` `Bundle` format; a **Settings** screen
+     (gear on Home) with Export-everything / Import-a-file; per-session **Export** in
+     the Home row menu. Merge rules: sessions → copy on id-collision, configs → upsert,
+     settings → replace (settings not populated until 7.3/7.4).
+   - *7.1* **Done** — config-lifecycle UI: a **Games & scripts** section in `Settings`
+     lists every game with its scripts, each with Remove (guarded when a saved session
+     uses it) + a per-game Export (`buildConfigBundle`), plus **Restore default games**.
+     Per-script delete uses `removeScriptConfig`. The setup **"Import a game"** sheet was
+     reverted to *import-only* — managing/deleting configs is a Settings concern now.
+   - *7.2* Freeform empty-state polish (setup already has a zero-games Restore state).
+   - *7.3* Colour presets (Default + Okabe-Ito colourblind-safe) — override the six
+     `--color-*` vars at runtime; every colour already resolves through them.
+   - *7.4* Localisation EN / 中文, **UI chrome only** (no config-content translation,
+     no config schema change); language + palette live in a `settings.ts` store and
+     ride along in the backup bundle.
+   Still-deferred threads: approve/reject vote *outcomes*; post-mortem showing *when* a
+   read turned right (from read history); another diagram-zoom pass.
 
 Explicitly out of scope: multi-player shared sessions (turns a note-taking need
 into a distributed-consistency problem), Storyteller/moderator features (crowded

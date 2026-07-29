@@ -9,17 +9,19 @@ import type {
   TeamId,
 } from '../types'
 import {
-  customGames,
-  customScripts,
-  removeCustomGame as persistRemoveGame,
-  saveCustomGame,
-  saveCustomScript,
+  removeGame,
+  removeScript,
+  restoreDefaults as restoreDefaultsInStore,
+  saveGame,
+  saveScript,
+  seedDefaults,
+  storedGames,
+  storedScripts,
 } from './custom'
-import avalonGame from './game.avalon.json'
-import botcGame from './game.botc.json'
-import avalonBase from './script.avalon.json'
-import troubleBrewing from './script.trouble-brewing.json'
+import { DEFAULT_GAMES, DEFAULT_SCRIPTS } from './defaults'
 import { validateGame, validateScript } from './validate'
+
+export { DEFAULT_GAME_ID, DEFAULT_SCRIPT_ID } from './defaults'
 
 /**
  * The relation vocabulary nearly every social-deduction game shares. A game config
@@ -40,41 +42,25 @@ function withDefaults(game: GameConfig): GameConfig {
   return game.relations?.length ? game : { ...game, relations: DEFAULT_RELATIONS }
 }
 
-// JSON imports widen string literals to `string`, so the shape is asserted here.
-// This is the single point where config enters the app. Built-in config is trusted;
-// user-imported config passes through `validate.ts` before it is registered here.
-// Every game is run through `withDefaults` on the way in, so downstream code always
-// sees a full `relations` array whether or not the config spelled one out.
-export const GAMES: Record<string, GameConfig> = {
-  botc: withDefaults(botcGame as unknown as GameConfig),
-  avalon: withDefaults(avalonGame as unknown as GameConfig),
+// The in-memory registries every component reads. They are a projection of the config
+// store: the shipped defaults are seeded into the store on first run (making them
+// ordinary, deletable entries) and then everything — defaults and imports alike — is
+// loaded the same way. `withDefaults` is applied here so downstream code always sees a
+// full `relations` array whether or not the stored config spelled one out.
+export const GAMES: Record<string, GameConfig> = {}
+export const SCRIPTS: Record<string, ScriptConfig> = {}
+
+/** Rebuild the registries from the store. Called at load and after any store change,
+ *  so the registries never drift from what's persisted. */
+function rebuildRegistries() {
+  for (const k of Object.keys(GAMES)) delete GAMES[k]
+  for (const k of Object.keys(SCRIPTS)) delete SCRIPTS[k]
+  for (const g of storedGames()) GAMES[g.id] = withDefaults(g)
+  for (const s of storedScripts()) SCRIPTS[s.id] = s
 }
 
-export const SCRIPTS: Record<string, ScriptConfig> = {
-  'trouble-brewing': troubleBrewing as unknown as ScriptConfig,
-  'avalon-base': avalonBase as unknown as ScriptConfig,
-}
-
-// Frozen before merging so we always know what shipped with the app: built-ins can
-// never be overwritten or deleted by an import.
-const BUILTIN_GAME_IDS = new Set(Object.keys(GAMES))
-const BUILTIN_SCRIPT_IDS = new Set(Object.keys(SCRIPTS))
-
-// Merge previously-imported configs into the registries at load, so `getGame` and
-// the picker see them from the first render. Done here (not in `custom.ts`) so the
-// registries stay the single source components read.
-for (const g of customGames()) GAMES[g.id] = withDefaults(g)
-for (const s of customScripts()) SCRIPTS[s.id] = s
-
-export function isBuiltinGame(id: string): boolean {
-  return BUILTIN_GAME_IDS.has(id)
-}
-export function isBuiltinScript(id: string): boolean {
-  return BUILTIN_SCRIPT_IDS.has(id)
-}
-
-export const DEFAULT_GAME_ID = 'botc'
-export const DEFAULT_SCRIPT_ID = 'trouble-brewing'
+seedDefaults(DEFAULT_GAMES, DEFAULT_SCRIPTS)
+rebuildRegistries()
 
 // Config problems should be loud and immediate rather than surfacing as an
 // undefined three components deep.
@@ -93,6 +79,11 @@ export function getScript(id: string): ScriptConfig {
 /** Every game that can start a session, in registry order — the setup picker reads this. */
 export function allGames(): GameConfig[] {
   return Object.values(GAMES)
+}
+
+/** Every script, across all games — the config-management list reads this. */
+export function allScripts(): ScriptConfig[] {
+  return Object.values(SCRIPTS)
 }
 
 /** The scripts belonging to a game (a script extends a game via `gameId`). */
@@ -124,7 +115,7 @@ export function rolesByTeam(
     .filter((group) => group.roles.length > 0)
 }
 
-// --- custom config import ----------------------------------------------------
+// --- config import / lifecycle ----------------------------------------------
 
 export type ImportResult =
   | { ok: true; imported: string[]; gameId: string }
@@ -134,7 +125,8 @@ export type ImportResult =
  * Parse and register user-pasted config. Accepts a game (has `phases`), a script
  * (has `roles`/`gameId`), or a `{ game, script }` bundle. Everything is validated
  * first and only committed if the whole import is clean — a half-registered import
- * would be more confusing than a rejected one. Built-in ids can't be overwritten.
+ * would be more confusing than a rejected one. An imported id replaces (upserts) an
+ * existing config of the same id; there are no privileged built-ins to protect.
  */
 export function importConfigText(text: string): ImportResult {
   let parsed: unknown
@@ -170,8 +162,6 @@ export function importConfigText(text: string): ImportResult {
   if (gameInput !== undefined) {
     const res = validateGame(gameInput)
     if (!res.ok) errors.push(...res.errors.map((m) => `game — ${m}`))
-    else if (isBuiltinGame(res.value.id))
-      errors.push(`game — id "${res.value.id}" is built in and can't be overwritten`)
     else gameToAdd = res.value
   }
 
@@ -183,8 +173,6 @@ export function importConfigText(text: string): ImportResult {
     const teamIds = targetGame ? new Set(targetGame.teams.map((t) => t.id)) : null
     const res = validateScript(scriptInput, teamIds)
     if (!res.ok) errors.push(...res.errors.map((m) => `script — ${m}`))
-    else if (isBuiltinScript(res.value.id))
-      errors.push(`script — id "${res.value.id}" is built in and can't be overwritten`)
     else if (!targetGame) errors.push(`script — extends unknown game "${String(gid)}" (import its game too)`)
     else scriptToAdd = res.value
   }
@@ -193,25 +181,41 @@ export function importConfigText(text: string): ImportResult {
 
   const imported: string[] = []
   if (gameToAdd) {
-    saveCustomGame(gameToAdd) // persist as imported (may omit relations)
-    GAMES[gameToAdd.id] = withDefaults(gameToAdd)
+    saveGame(gameToAdd) // stored raw (may omit relations); withDefaults applied on rebuild
     imported.push(`game “${gameToAdd.name}”`)
   }
   if (scriptToAdd) {
-    saveCustomScript(scriptToAdd)
-    SCRIPTS[scriptToAdd.id] = scriptToAdd
+    saveScript(scriptToAdd)
     imported.push(`script “${scriptToAdd.name}”`)
   }
+  rebuildRegistries()
   // The game to surface in the picker: the imported game, or the one a lone script extends.
   const gameId = gameToAdd?.id ?? scriptToAdd!.gameId
   return { ok: true, imported, gameId }
 }
 
-/** Remove an imported game and its imported scripts (built-ins are left alone). */
-export function removeCustomGameConfig(id: string) {
-  if (isBuiltinGame(id)) return
-  persistRemoveGame(id)
-  delete GAMES[id]
-  for (const s of Object.values(SCRIPTS))
-    if (s.gameId === id && !isBuiltinScript(s.id)) delete SCRIPTS[s.id]
+/** Register already-validated configs from a bundle import (see share.ts). Upserts by id. */
+export function registerImportedConfigs(games: GameConfig[], scripts: ScriptConfig[]) {
+  for (const g of games) saveGame(g)
+  for (const s of scripts) saveScript(s)
+  rebuildRegistries()
+}
+
+/** Remove a game and its scripts. Integrity (not deleting a config a saved session
+ *  uses) is enforced by callers, which know the sessions. */
+export function removeGameConfig(id: string) {
+  removeGame(id)
+  rebuildRegistries()
+}
+
+/** Remove a single script, leaving its game in place. */
+export function removeScriptConfig(id: string) {
+  removeScript(id)
+  rebuildRegistries()
+}
+
+/** Bring the shipped default games/scripts back (even deleted ones). */
+export function restoreDefaultConfigs() {
+  restoreDefaultsInStore(DEFAULT_GAMES, DEFAULT_SCRIPTS)
+  rebuildRegistries()
 }

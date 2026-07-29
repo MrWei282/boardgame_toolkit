@@ -1,60 +1,93 @@
 import type { GameConfig, ScriptConfig } from '../types'
 
-// Persistence for user-imported configs. Kept in its own localStorage key (not the
-// session blob) and read *synchronously* at module load — unlike session data,
-// configs must be present before the first render, since `getGame` runs during it.
-// Small and rarely written, so sync localStorage is fine here.
+// The config store. Every game and script the app knows lives here, in localStorage,
+// on equal footing — the shipped defaults (BotC, Avalon) are *seeded* into this same
+// store on first run, not held apart as privileged built-ins. After seeding they are
+// ordinary entries: editable, deletable, exportable exactly like an imported config.
+// Read *synchronously* at module load — unlike session data, configs must be present
+// before the first render, since `getGame` runs during it.
 
-const KEY = 'deduction-custom-configs'
+const KEY = 'deduction-config-store'
+// Pre-modular blob (games/scripts only, no seeding). Adopted once so a user who had
+// imported custom configs before the modular refactor keeps them.
+const LEGACY_KEY = 'deduction-custom-configs'
 
-type CustomBlob = { version: number; games: GameConfig[]; scripts: ScriptConfig[] }
-const EMPTY: CustomBlob = { version: 1, games: [], scripts: [] }
+type ConfigBlob = {
+  version: number
+  games: GameConfig[]
+  scripts: ScriptConfig[]
+  /**
+   * Ids of defaults that have already been seeded once. A default whose id is in
+   * here is never re-seeded automatically, so deleting BotC/Avalon *sticks* across
+   * reloads; a newly shipped default (id not here) seeds once on the next load.
+   * "Restore defaults" is the explicit way to bring a deleted default back.
+   */
+  seededIds: string[]
+}
 
-function read(): CustomBlob {
+const EMPTY: ConfigBlob = { version: 2, games: [], scripts: [], seededIds: [] }
+
+function arr<T>(v: unknown): T[] {
+  return Array.isArray(v) ? (v as T[]) : []
+}
+
+function read(): ConfigBlob {
   try {
     const raw = localStorage.getItem(KEY)
-    if (!raw) return { ...EMPTY }
-    const data = JSON.parse(raw) as Partial<CustomBlob>
-    // Shape guard only — the configs were validated before they were saved.
+    if (!raw) {
+      // First run under the modular store: adopt any pre-modular custom configs, with
+      // no seeded ids so the shipped defaults seed in alongside them on this load.
+      const legacy = localStorage.getItem(LEGACY_KEY)
+      if (legacy) {
+        const old = JSON.parse(legacy) as Partial<ConfigBlob>
+        return { version: 2, games: arr(old.games), scripts: arr(old.scripts), seededIds: [] }
+      }
+      return { ...EMPTY }
+    }
+    const data = JSON.parse(raw) as Partial<ConfigBlob>
+    // Shape guard only — configs were validated before they were saved.
     return {
-      version: 1,
-      games: Array.isArray(data.games) ? data.games : [],
-      scripts: Array.isArray(data.scripts) ? data.scripts : [],
+      version: 2,
+      games: arr(data.games),
+      scripts: arr(data.scripts),
+      seededIds: arr<string>(data.seededIds).filter((x) => typeof x === 'string'),
     }
   } catch (err) {
-    console.error('Failed to read custom configs, ignoring them:', err)
+    console.error('Failed to read config store, ignoring it:', err)
     return { ...EMPTY }
   }
 }
 
-function write(next: CustomBlob) {
+function write(next: ConfigBlob) {
   try {
     localStorage.setItem(KEY, JSON.stringify(next))
   } catch (err) {
-    console.error('Failed to save custom configs:', err)
+    console.error('Failed to save config store:', err)
   }
 }
 
 let blob = read()
 
-export function customGames(): GameConfig[] {
+export function storedGames(): GameConfig[] {
   return blob.games
 }
-export function customScripts(): ScriptConfig[] {
+export function storedScripts(): ScriptConfig[] {
   return blob.scripts
 }
 
-export function saveCustomGame(game: GameConfig) {
+/** Upsert a game by id (a re-imported config replaces the older version). */
+export function saveGame(game: GameConfig) {
   blob = { ...blob, games: [...blob.games.filter((g) => g.id !== game.id), game] }
   write(blob)
 }
-export function saveCustomScript(script: ScriptConfig) {
+/** Upsert a script by id. */
+export function saveScript(script: ScriptConfig) {
   blob = { ...blob, scripts: [...blob.scripts.filter((s) => s.id !== script.id), script] }
   write(blob)
 }
 
-/** Remove a custom game and any custom scripts that extended it. */
-export function removeCustomGame(id: string) {
+/** Remove a game and cascade to the scripts that extended it. */
+export function removeGame(id: string) {
   blob = {
     ...blob,
     games: blob.games.filter((g) => g.id !== id),
@@ -62,7 +95,52 @@ export function removeCustomGame(id: string) {
   }
   write(blob)
 }
-export function removeCustomScript(id: string) {
+export function removeScript(id: string) {
   blob = { ...blob, scripts: blob.scripts.filter((s) => s.id !== id) }
+  write(blob)
+}
+
+/**
+ * Copy shipped defaults into the store the first time each is seen (tracked by
+ * `seededIds`), skipping any the user has since deleted. Idempotent: on a normal
+ * reload nothing changes; it acts only on a genuinely new default id.
+ */
+export function seedDefaults(games: GameConfig[], scripts: ScriptConfig[]) {
+  const seeded = new Set(blob.seededIds)
+  const gameById = new Map(blob.games.map((g) => [g.id, true]))
+  const scriptById = new Map(blob.scripts.map((s) => [s.id, true]))
+
+  const addGames = games.filter((g) => !seeded.has(g.id) && !gameById.has(g.id))
+  const addScripts = scripts.filter((s) => !seeded.has(s.id) && !scriptById.has(s.id))
+  const newIds = [...games, ...scripts].map((c) => c.id).filter((id) => !seeded.has(id))
+
+  if (addGames.length === 0 && addScripts.length === 0 && newIds.length === 0) return
+  for (const id of newIds) seeded.add(id)
+  blob = {
+    ...blob,
+    games: [...blob.games, ...addGames],
+    scripts: [...blob.scripts, ...addScripts],
+    seededIds: [...seeded],
+  }
+  write(blob)
+}
+
+/**
+ * Bring every shipped default back (upsert), even ones the user deleted — the
+ * "Restore defaults" action. Existing custom configs and edits to non-default
+ * configs are untouched.
+ */
+export function restoreDefaults(games: GameConfig[], scripts: ScriptConfig[]) {
+  const gamesById = new Map(blob.games.map((g) => [g.id, g]))
+  for (const g of games) gamesById.set(g.id, g)
+  const scriptsById = new Map(blob.scripts.map((s) => [s.id, s]))
+  for (const s of scripts) scriptsById.set(s.id, s)
+  const seeded = new Set([...blob.seededIds, ...games.map((g) => g.id), ...scripts.map((s) => s.id)])
+  blob = {
+    version: 2,
+    games: [...gamesById.values()],
+    scripts: [...scriptsById.values()],
+    seededIds: [...seeded],
+  }
   write(blob)
 }

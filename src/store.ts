@@ -1,5 +1,6 @@
 import { create } from 'zustand'
-import { getGame } from './config'
+import { getGame, registerImportedConfigs } from './config'
+import type { ParsedBundle } from './share'
 import { loadAll, saveAll, VERSION } from './storage'
 import type { Assertion, GameConfig, GameEvent, Phase, PlayerId, ReadTag, Reveal, RoleId, RoleTag, Session } from './types'
 import { uid } from './uid'
@@ -70,6 +71,12 @@ type Store = {
   /** Record end-of-game ground truth; also marks the game finished. */
   setTruth: (truth: Reveal[]) => void
   deleteSession: (id: string) => void
+  /**
+   * Merge a parsed bundle into local state (see share.ts). Configs upsert by id;
+   * each session imports as a *new copy* on an id collision, so importing never
+   * overwrites the user's own game data.
+   */
+  importBundle: (bundle: ParsedBundle) => void
 
   nextPhase: () => void
   prevPhase: () => void
@@ -203,6 +210,21 @@ export const useStore = create<Store>()((set, get) => {
       const nextCurrent = currentSessionId === id ? null : currentSessionId
       set({ sessions: next, currentSessionId: nextCurrent })
       void saveAll({ version: VERSION, currentSessionId: nextCurrent, sessions: next })
+    },
+
+    importBundle: (bundle) => {
+      // Configs first, so imported sessions can resolve their game/script.
+      registerImportedConfigs(bundle.games, bundle.scripts)
+      const { sessions, currentSessionId } = get()
+      const next = { ...sessions }
+      for (const s of bundle.sessions) {
+        // Never clobber an existing local session — a colliding id imports as a copy.
+        const id = next[s.id] ? uid() : s.id
+        next[id] = { ...s, id }
+      }
+      set({ sessions: next })
+      void saveAll({ version: VERSION, currentSessionId, sessions: next })
+      // Bundle settings (palette/language) are applied once those stores exist (7.3/7.4).
     },
 
     // Phase order comes from the game config now (see stepPhase).

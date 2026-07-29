@@ -2,23 +2,24 @@ import { useEffect, useState } from 'react'
 import { GameScreen } from './components/GameScreen'
 import { HomeScreen } from './components/HomeScreen'
 import { SessionSetup } from './components/SessionSetup'
+import { Settings } from './components/Settings'
 import { useSession, useStore } from './store'
 
 export default function App() {
   const hydrated = useStore((s) => s.hydrated)
   const hydrate = useStore((s) => s.hydrate)
   const session = useSession()
-  // Which no-session screen to show: the games list, or the new-game form.
-  const [creating, setCreating] = useState(false)
+  // Which no-session screen to show: the games list, the new-game form, or settings.
+  const [view, setView] = useState<'home' | 'new' | 'settings'>('home')
 
   useEffect(() => {
     void hydrate()
   }, [hydrate])
 
-  // Once a game is created/opened, drop the creating flag so a later Exit lands
-  // back on the games list rather than reopening the new-game form.
+  // Once a game is created/opened, drop back to home so a later Exit lands on the
+  // games list rather than reopening the new-game form.
   useEffect(() => {
-    if (session) setCreating(false)
+    if (session) setView('home')
   }, [session])
 
   // Rendering a screen before storage has been read would flash it over an
@@ -28,9 +29,7 @@ export default function App() {
   // A current session always wins, so a reload mid-game resumes straight into it.
   if (session) return <GameScreen session={session} />
 
-  return creating ? (
-    <SessionSetup onCancel={() => setCreating(false)} />
-  ) : (
-    <HomeScreen onNewGame={() => setCreating(true)} />
-  )
+  if (view === 'new') return <SessionSetup onCancel={() => setView('home')} />
+  if (view === 'settings') return <Settings onClose={() => setView('home')} />
+  return <HomeScreen onNewGame={() => setView('new')} onOpenSettings={() => setView('settings')} />
 }

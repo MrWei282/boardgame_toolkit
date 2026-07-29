@@ -104,6 +104,73 @@ full-screen and works offline.
 > LAN dev-server URL (plain `http://…`) runs fine for testing but won't offer
 > install.
 
+## Custom games and scripts
+
+Games are **data, not code**. The app ships with Blood on the Clocktower and Avalon
+as ordinary configs you can edit or delete, and you can add your own. A game is two
+small JSON pieces:
+
+- **game** — the shape of play: player range, phases, teams, and (optionally) the
+  relation vocabulary.
+- **script** — a role list layered on a game. One game can have several scripts.
+
+### A game
+
+```json
+{
+  "id": "werewolf",
+  "name": "Werewolf",
+  "minPlayers": 5,
+  "maxPlayers": 12,
+  "phases": {
+    "setup": [{ "id": "firstnight", "label": "First Night", "short": "N1" }],
+    "cycle": [
+      { "id": "night", "label": "Night", "short": "N" },
+      { "id": "day", "label": "Day", "short": "D" }
+    ]
+  },
+  "teams": [
+    { "id": "village", "name": "Village", "alignment": "good", "tone": "good" },
+    { "id": "wolves", "name": "Werewolves", "alignment": "evil", "tone": "evil" }
+  ]
+}
+```
+
+- `phases.cycle` repeats every round; `phases.setup` (optional) runs once at the start,
+  like an opening night. List phases in play order.
+- `alignment` is the deduction axis — `good` | `evil` | `neutral`. `tone` is only the
+  colour — `good` | `evil` | `neutral` | `info` | `blue` | `purple`.
+- **`relations` is optional.** Omit it and the game inherits the standard set (vouch,
+  accuse, nominate, vote, info). Add your own only if you need different verbs.
+
+### A script
+
+```json
+{
+  "id": "werewolf-classic",
+  "gameId": "werewolf",
+  "name": "Classic",
+  "roles": [
+    { "id": "seer", "name": "Seer", "team": "village" },
+    { "id": "werewolf", "name": "Werewolf", "team": "wolves" }
+  ]
+}
+```
+
+- `gameId` must match a game's `id`; each role's `team` must be a team `id` in that game.
+
+### Import, edit, share
+
+- **Add one** — New game → **＋ Import a game**, then paste a game, a script, or both as
+  `{ "game": { … }, "script": { … } }`. It's validated before anything is saved.
+- **Manage** — Settings → **Games & scripts** lists everything installed. Remove a game
+  or an individual script, or **Export** a game to a `.json` file.
+- **Edit an existing one** — Export it, change the JSON, and import the file back
+  (Settings → Import). The same `id` replaces the old version. To tweak a built-in,
+  export Blood on the Clocktower or Avalon first.
+- **Share / back up** — an exported file imports on any other device. Ids must be
+  unique; two games can't share an `id`.
+
 ## Notes for manual testing
 
 - Data is stored in the browser's `localStorage`, per device and per browser.
