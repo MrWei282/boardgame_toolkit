@@ -9,13 +9,12 @@
   --color-ink: #e6edf3;
   --color-muted: #8b9bb0;
 
-  /* tones — named colour slots for relations and teams */
+  /* base tones — the four semantic palette colours (customisable in Settings).
+     Team colours are game-config data, not global slots. */
   --color-good: #3fb950;
   --color-evil: #f85149;
   --color-neutral: #d29922;
   --color-info: #58a6ff;
-  --color-blue: #4c9aff;
-  --color-purple: #bf5af2;
 }
 
 html {

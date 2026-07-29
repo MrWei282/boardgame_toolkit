@@ -37,9 +37,26 @@ const DEFAULT_RELATIONS: RelationConfig[] = [
   { id: 'info', label: 'Info', phrase: 'gives info on', selfPhrase: 'claims', targets: 'many', roles: 'optional', edge: true, tone: 'info' },
 ]
 
-/** Fill in the default relations for a game that didn't declare its own. */
+// Pre-modular configs coloured teams with the fixed `blue`/`purple` tone slots, which
+// no longer exist globally. Map those to their old hexes so such configs keep their look.
+const LEGACY_TONE_COLORS: Record<string, string> = { blue: '#4c9aff', purple: '#bf5af2' }
+
+/**
+ * Normalise a stored/imported game for the registry: fill default relations if the
+ * game declared none, and give every team a `color` — from `team.color`, or migrated
+ * from a legacy `team.tone` (blue/purple → their old hex). Downstream code then always
+ * sees `team.color`, never the old `tone`.
+ */
 function withDefaults(game: GameConfig): GameConfig {
-  return game.relations?.length ? game : { ...game, relations: DEFAULT_RELATIONS }
+  return {
+    ...game,
+    relations: game.relations?.length ? game.relations : DEFAULT_RELATIONS,
+    teams: game.teams.map((t) => {
+      const raw = t as TeamConfig & { tone?: string }
+      const color = raw.color ?? (raw.tone ? (LEGACY_TONE_COLORS[raw.tone] ?? raw.tone) : 'good')
+      return { ...t, color }
+    }),
+  }
 }
 
 // The in-memory registries every component reads. They are a projection of the config

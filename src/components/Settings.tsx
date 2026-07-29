@@ -16,8 +16,11 @@ import {
   serializeBundle,
 } from '../share'
 import { useSessions, useStore } from '../store'
-import { PALETTES } from '../theme'
+import { effectiveColor, PALETTES } from '../theme'
 import type { Tone } from '../types'
+
+const TONE_LABELS: Record<Tone, string> = { good: 'Good', evil: 'Evil', neutral: 'Neutral', info: 'Info' }
+const TONE_ORDER: Tone[] = ['good', 'evil', 'neutral', 'info']
 
 type ImportOutcome =
   | { ok: true; summary: { sessions: number; games: number; scripts: number; settings: boolean } }
@@ -28,6 +31,9 @@ export function Settings({ onClose }: { onClose: () => void }) {
   const importBundle = useStore((s) => s.importBundle)
   const palette = useSettings((s) => s.palette)
   const setPalette = useSettings((s) => s.setPalette)
+  const customColors = useSettings((s) => s.customColors)
+  const setCustomColor = useSettings((s) => s.setCustomColor)
+  const resetColors = useSettings((s) => s.resetColors)
   const fileInput = useRef<HTMLInputElement>(null)
   const [outcome, setOutcome] = useState<ImportOutcome | null>(null)
   // The config registries mutate in place; bump this to re-read them after a change.
@@ -130,7 +136,8 @@ export function Settings({ onClose }: { onClose: () => void }) {
       <section className="mt-8">
         <h2 className="mb-1 text-[11px] tracking-wide text-muted uppercase">Appearance</h2>
         <p className="mb-3 text-xs text-muted">
-          The colours used for teams, arrows and reads across the app and diagram.
+          The four base colours — reads, relations and neutral/info — across the app and diagram.
+          Team colours come from each game’s config.
         </p>
         <div className="space-y-2">
           {PALETTES.map((p) => {
@@ -146,12 +153,8 @@ export function Settings({ onClose }: { onClose: () => void }) {
                 ].join(' ')}
               >
                 <span className="flex shrink-0 gap-1">
-                  {(['good', 'evil', 'neutral', 'info', 'blue', 'purple'] as Tone[]).map((t) => (
-                    <span
-                      key={t}
-                      className="h-4 w-4 rounded-full"
-                      style={{ backgroundColor: p.colors[t] }}
-                    />
+                  {TONE_ORDER.map((t) => (
+                    <span key={t} className="h-4 w-4 rounded-full" style={{ backgroundColor: p.colors[t] }} />
                   ))}
                 </span>
                 <span className="min-w-0 flex-1">
@@ -162,6 +165,47 @@ export function Settings({ onClose }: { onClose: () => void }) {
               </button>
             )
           })}
+        </div>
+
+        {/* Per-tone override on top of the chosen preset. */}
+        <div className="mt-3 rounded-xl border border-line bg-surface px-3 py-3">
+          <div className="mb-2 flex items-center justify-between">
+            <span className="text-xs font-medium text-muted">Customise colours</span>
+            {Object.keys(customColors).length > 0 && (
+              <button onClick={resetColors} className="text-[11px] text-info active:text-ink">
+                Reset
+              </button>
+            )}
+          </div>
+          <div className="grid grid-cols-2 gap-2">
+            {TONE_ORDER.map((t) => (
+              <label
+                key={t}
+                className="flex items-center gap-2 rounded-lg border border-line bg-raised px-2.5 py-2"
+              >
+                <input
+                  type="color"
+                  value={effectiveColor(palette, t, customColors)}
+                  onChange={(e) => setCustomColor(t, e.target.value)}
+                  className="h-6 w-6 shrink-0 cursor-pointer rounded border-0 bg-transparent p-0"
+                  aria-label={`${TONE_LABELS[t]} colour`}
+                />
+                <span className="text-sm">{TONE_LABELS[t]}</span>
+                {customColors[t] && (
+                  <button
+                    onClick={(e) => {
+                      e.preventDefault()
+                      setCustomColor(t, null)
+                    }}
+                    aria-label={`Reset ${TONE_LABELS[t]}`}
+                    className="ml-auto text-[11px] text-muted active:text-ink"
+                  >
+                    ✕
+                  </button>
+                )}
+              </label>
+            ))}
+          </div>
         </div>
       </section>
 

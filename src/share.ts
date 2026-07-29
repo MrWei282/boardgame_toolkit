@@ -20,8 +20,8 @@ export type Bundle = {
   sessions?: Session[]
   games?: GameConfig[]
   scripts?: ScriptConfig[]
-  // Reserved for full-backup app settings (palette/language) — added in 7.3/7.4.
-  settings?: { palette?: string; language?: string }
+  // Full-backup app settings: colour palette + per-tone overrides now, language later.
+  settings?: { palette?: string; customColors?: Record<string, string>; language?: string }
 }
 
 /** A validated, normalized bundle ready to import, plus a human summary for the preview. */
@@ -44,7 +44,10 @@ export function buildBackupBundle(sessions: Session[]): Bundle {
     sessions,
     games: allGames(),
     scripts: allScripts(),
-    settings: { palette: useSettings.getState().palette },
+    settings: {
+      palette: useSettings.getState().palette,
+      customColors: useSettings.getState().customColors,
+    },
   }
 }
 

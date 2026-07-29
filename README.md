@@ -130,16 +130,20 @@ small JSON pieces:
     ]
   },
   "teams": [
-    { "id": "village", "name": "Village", "alignment": "good", "tone": "good" },
-    { "id": "wolves", "name": "Werewolves", "alignment": "evil", "tone": "evil" }
+    { "id": "village", "name": "Village", "alignment": "good", "color": "good" },
+    { "id": "wolves", "name": "Werewolves", "alignment": "evil", "color": "evil" },
+    { "id": "tanner", "name": "Tanner", "alignment": "neutral", "color": "#cc79a7" }
   ]
 }
 ```
 
 - `phases.cycle` repeats every round; `phases.setup` (optional) runs once at the start,
   like an opening night. List phases in play order.
-- `alignment` is the deduction axis — `good` | `evil` | `neutral`. `tone` is only the
-  colour — `good` | `evil` | `neutral` | `info` | `blue` | `purple`.
+- `alignment` is the deduction axis — `good` | `evil` | `neutral`. It drives reads and
+  scoring, and is separate from colour.
+- `color` is the team's colour: either a **base-tone name** (`good` | `evil` | `neutral` |
+  `info` — tracks the app's palette and colourblind preset) or a **literal hex** like
+  `"#4c9aff"` for its own hue. A game brings exactly the team colours it needs.
 - **`relations` is optional.** Omit it and the game inherits the standard set (vouch,
   accuse, nominate, vote, info). Add your own only if you need different verbs.
 

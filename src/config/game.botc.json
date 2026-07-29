@@ -10,9 +10,9 @@
     ]
   },
   "teams": [
-    { "id": "townsfolk", "name": "Townsfolk", "alignment": "good", "tone": "good" },
-    { "id": "outsider", "name": "Outsider", "alignment": "good", "tone": "blue" },
-    { "id": "minion", "name": "Minion", "alignment": "evil", "tone": "purple" },
-    { "id": "demon", "name": "Demon", "alignment": "evil", "tone": "evil" }
+    { "id": "townsfolk", "name": "Townsfolk", "alignment": "good", "color": "good" },
+    { "id": "outsider", "name": "Outsider", "alignment": "good", "color": "#4c9aff" },
+    { "id": "minion", "name": "Minion", "alignment": "evil", "color": "#bf5af2" },
+    { "id": "demon", "name": "Demon", "alignment": "evil", "color": "evil" }
   ]
 }

@@ -225,8 +225,8 @@ export const useStore = create<Store>()((set, get) => {
       }
       set({ sessions: next })
       void saveAll({ version: VERSION, currentSessionId, sessions: next })
-      // A full backup carries app settings (palette now, language later) — apply them.
-      if (bundle.settings?.palette) useSettings.getState().setPalette(bundle.settings.palette)
+      // A full backup carries app settings (palette + custom colours) — apply them.
+      if (bundle.settings) useSettings.getState().importSettings(bundle.settings)
     },
 
     // Phase order comes from the game config now (see stepPhase).

@@ -5,6 +5,7 @@ import { directedEdge, seatPoint, selfEdge, tokenWedge, type Pt } from '../diagr
 import { isAlive } from '../projections'
 import { haloStyle, leanTone } from '../read'
 import { currentReadValue, currentRoleIds } from '../store'
+import { resolveTeamColor } from '../tone'
 import type { GameConfig, PlayerId, ScriptConfig, Session, Tone } from '../types'
 
 type Props = {
@@ -32,13 +33,13 @@ const SPREAD_MAX = 2.6
 
 const clamp = (n: number, lo: number, hi: number) => Math.min(hi, Math.max(lo, n))
 
+// Relation/read tones (the four base palette colours). Team colours are resolved
+// separately via resolveTeamColor, since a team's colour may be any hex.
 const toneVar: Record<Tone, string> = {
   good: 'var(--color-good)',
   evil: 'var(--color-evil)',
   neutral: 'var(--color-neutral)',
   info: 'var(--color-info)',
-  blue: 'var(--color-blue)',
-  purple: 'var(--color-purple)',
 }
 
 export function SeatCircle({
@@ -333,12 +334,12 @@ export function SeatCircle({
                   {roleIds.length > 0 ? (
                     roleIds.map((id, i) => {
                       const role = getRole(script, id)
-                      const tone = role ? getTeam(game, role.team)?.tone : undefined
+                      const color = role ? getTeam(game, role.team)?.color : undefined
                       return (
                         <path
                           key={id}
                           d={tokenWedge(c, tokenR, i, roleIds.length)}
-                          fill={tone ? toneVar[tone] : 'var(--color-raised)'}
+                          fill={color ? resolveTeamColor(color) : 'var(--color-raised)'}
                           fillOpacity={0.4}
                         />
                       )

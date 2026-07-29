@@ -4,7 +4,7 @@ import { getRole, getTeam } from '../config'
 import { assertionParts } from '../describe'
 import { isAlive } from '../projections'
 import { currentReadValue, currentRoleIds, useStore } from '../store'
-import { toneChip, toneText } from '../tone'
+import { teamChipStyle, toneChip, toneText } from '../tone'
 import type { GameConfig, GameEvent, Phase, PlayerId, ScriptConfig, Session } from '../types'
 import type { Assertion } from '../types'
 import { AssertionText } from './AssertionText'
@@ -226,14 +226,15 @@ export function DiagramView({
                   <div className="flex flex-wrap gap-1">
                     {guessedRoleIds.map((id) => {
                       const role = getRole(script, id)
-                      const tone = role ? getTeam(game, role.team)?.tone : undefined
+                      const color = role ? getTeam(game, role.team)?.color : undefined
                       return (
                         <span
                           key={id}
                           className={[
                             'rounded border px-1.5 py-0.5 text-[11px] leading-none',
-                            tone ? toneChip[tone] : 'border-line text-muted',
+                            color ? '' : 'border-line text-muted',
                           ].join(' ')}
+                          style={color ? teamChipStyle(color) : undefined}
                         >
                           {role?.name ?? id}
                         </span>

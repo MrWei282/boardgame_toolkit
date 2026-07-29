@@ -48,9 +48,14 @@ Key shapes (see `types.ts`):
   (BotC `[night, day]`). `PhaseDef = { id, label, short }`, in *play order* (array
   order is the phase order `rankOf` keys off). Ranks are computed, never stored.
 - `TeamConfig` carries **`alignment`** (good/evil/neutral — the deduction axis, drives
-  reads/scoring) **separately from `tone`** (a colour slot). They genuinely diverge:
-  BotC outsiders are `alignment: good` but `tone: blue`; minions `tone: purple`, demons
-  `tone: evil` (red). `roleAlignment` reads `team.alignment`.
+  reads/scoring) **separately from `color`** (its display colour). They genuinely diverge:
+  BotC outsiders are `alignment: good` but coloured blue so the two good-team groups read
+  apart. **`color` is game-config data, not a fixed global slot** (iteration 7.3b): either
+  a base-tone name (`good`/`evil`/`neutral`/`info`, tracking the palette + colourblind
+  preset) or a literal hex (`#4c9aff`, its own hue). BotC: townsfolk `good`, demon `evil`,
+  outsider `#4c9aff`, minion `#bf5af2`. `roleAlignment` reads `team.alignment`. (Legacy
+  configs used a `tone` slot incl. the now-removed `blue`/`purple`; `withDefaults`
+  normalises `tone`→`color`, mapping blue/purple to their old hexes — see config/index.ts.)
 - `relations` is **optional** — omit it and the game inherits `DEFAULT_RELATIONS`
   (`config/index.ts`: the generic vouch/accuse/nominate/vote/info, with the fiddly
   vote roll-up wiring). `withDefaults()` fills it on every game entering the registry,
@@ -265,9 +270,12 @@ Notes on why it looks like this:
   `target === speaker`. Votes never draw an edge — they roll up under their
   nomination. **Relations can be toggled off** the diagram from the legend
   (`hiddenRelations` in `DiagramView`, filtering `deriveEdges`) to declutter when
-  several colours fly at once. Team colour is config now (`tone`): townsfolk green,
-  outsider blue, minion **purple**, demon **red** (`purple` tone added in 6.5 so the
-  two evil teams read apart — distinct hues, colourblind-friendlier than two reds).
+  several colours fly at once. The **relation legend renders above the circle** (7.3),
+  not below, so it's out of the thumb's token-tapping zone. Team colour comes from
+  `team.color` (7.3b): townsfolk green, outsider blue (`#4c9aff`), minion purple
+  (`#bf5af2`), demon red. Team-coloured bits (token wedges, role-guess chips) resolve
+  via `resolveTeamColor`/`teamChipStyle` (inline styles + `color-mix`, since a hex can't
+  be a Tailwind class); relations/reads keep the four base-tone Tailwind classes.
 - Role guesses render as N equal team-toned wedges on the token, **and (6.5) as text
   under the player's name label** for quick glance (the wedges stay the colour cue).
   ~2–3 wedges are legible at 15 players; past that a count badge + the focus card.
@@ -363,6 +371,15 @@ Ship one stage at a time; do not build a large prototype in one go.
      `deduction-settings`) holds `palette`; `main.tsx` applies it before first paint (no
      flash); an **Appearance** section in `Settings` picks it; the palette rides along in
      the backup bundle (`Bundle.settings`, applied on import).
+   - *7.3b* **Done** — modular colours: the global palette shrank to the **four base
+     tones** (good/evil/neutral/info); `blue`/`purple` are gone. **Team colour is game
+     config** (`TeamConfig.color` = base-tone name *or* hex — see "Games are config"),
+     so a game brings its own team colours instead of fitting global slots. Rendering
+     split: teams use `resolveTeamColor`/`teamChipStyle` (inline + `color-mix`),
+     relations/reads keep base-tone Tailwind classes. Settings **Appearance** gained a
+     per-tone custom-colour picker (overrides layered on a preset, in `settings.ts`
+     `customColors`, riding in the backup). Back-compat: `withDefaults` normalises legacy
+     `team.tone`→`color`.
    - *7.4* Localisation EN / 中文, **UI chrome only** (no config-content translation,
      no config schema change); `language` joins the `settings.ts` store and the bundle.
    - *7.5* **In-app config editor (create-only).** Duplicate/create a script (role list)

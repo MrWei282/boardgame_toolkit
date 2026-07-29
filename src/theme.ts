@@ -1,11 +1,12 @@
 import type { Tone } from './types'
 
-// Colour presets. Every colour in the app — Tailwind utilities and the diagram SVG
-// alike — resolves through the six `--color-<tone>` CSS variables (see index.css),
-// so a preset just overrides those six variables on <html> at runtime and the whole
-// UI + diagram recolour at once. No component knows this happened.
+// Colour presets + per-tone custom overrides. Every colour in the app — Tailwind
+// utilities and the diagram SVG alike — resolves through the four `--color-<tone>`
+// CSS variables (see index.css), so the theme just overrides those on <html> at
+// runtime and the whole UI + diagram recolour at once. Only the four *base* tones are
+// global and customisable here; team colours live in each game's config.
 
-const TONES: Tone[] = ['good', 'evil', 'neutral', 'info', 'blue', 'purple']
+const TONES: Tone[] = ['good', 'evil', 'neutral', 'info']
 
 export type Palette = {
   id: string
@@ -13,6 +14,9 @@ export type Palette = {
   description: string
   colors: Record<Tone, string>
 }
+
+/** Per-tone hex overrides layered on top of a preset (the custom colour picker). */
+export type CustomColors = Partial<Record<Tone, string>>
 
 export const DEFAULT_PALETTE_ID = 'default'
 
@@ -22,14 +26,7 @@ export const PALETTES: Palette[] = [
     name: 'Default',
     description: 'The original palette.',
     // Kept in sync with index.css so the swatches match the un-overridden look.
-    colors: {
-      good: '#3fb950',
-      evil: '#f85149',
-      neutral: '#d29922',
-      info: '#58a6ff',
-      blue: '#4c9aff',
-      purple: '#bf5af2',
-    },
+    colors: { good: '#3fb950', evil: '#f85149', neutral: '#d29922', info: '#58a6ff' },
   },
   {
     id: 'okabe-ito',
@@ -40,8 +37,6 @@ export const PALETTES: Palette[] = [
       evil: '#d55e00', // vermillion
       neutral: '#f0e442', // yellow
       info: '#56b4e9', // sky blue
-      blue: '#0072b2', // blue
-      purple: '#cc79a7', // reddish purple
     },
   },
 ]
@@ -51,16 +46,26 @@ export function getPalette(id: string): Palette {
 }
 
 /**
- * Apply a preset by writing the six `--color-<tone>` variables onto <html>. The
- * default preset *clears* the overrides instead, so the values fall back to the
- * stylesheet — that keeps index.css the single source of truth for the default look.
+ * The colour a tone resolves to under a preset + overrides — what the swatches and
+ * the colour-picker inputs display. Mirrors what `applyTheme` writes.
  */
-export function applyPalette(id: string) {
+export function effectiveColor(paletteId: string, tone: Tone, custom?: CustomColors): string {
+  return custom?.[tone] ?? getPalette(paletteId).colors[tone]
+}
+
+/**
+ * Apply a preset plus any per-tone overrides by writing the four `--color-<tone>`
+ * variables onto <html>. On the default preset with no override for a tone, the
+ * variable is *cleared* so it falls back to the stylesheet — keeping index.css the
+ * single source of truth for the default look.
+ */
+export function applyTheme(paletteId: string, custom?: CustomColors) {
   const root = document.documentElement
-  const palette = getPalette(id)
-  if (palette.id === DEFAULT_PALETTE_ID) {
-    for (const tone of TONES) root.style.removeProperty(`--color-${tone}`)
-    return
+  const preset = getPalette(paletteId)
+  for (const tone of TONES) {
+    const override = custom?.[tone]
+    if (override) root.style.setProperty(`--color-${tone}`, override)
+    else if (preset.id === DEFAULT_PALETTE_ID) root.style.removeProperty(`--color-${tone}`)
+    else root.style.setProperty(`--color-${tone}`, preset.colors[tone])
   }
-  for (const tone of TONES) root.style.setProperty(`--color-${tone}`, palette.colors[tone])
 }

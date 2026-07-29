@@ -1,5 +1,5 @@
 import { rolesByTeam } from '../config'
-import { toneChip } from '../tone'
+import { teamChipStyle } from '../tone'
 import type { GameConfig, RoleId, ScriptConfig } from '../types'
 
 type Props = {
@@ -24,10 +24,9 @@ export function RolePicker({ game, script, selected, onToggle }: Props) {
                   onClick={() => onToggle(role.id)}
                   className={[
                     'rounded-lg border px-2.5 py-1.5 text-sm',
-                    isSelected
-                      ? toneChip[team.tone]
-                      : 'border-line bg-raised text-muted active:bg-line',
+                    isSelected ? '' : 'border-line bg-raised text-muted active:bg-line',
                   ].join(' ')}
+                  style={isSelected ? teamChipStyle(team.color) : undefined}
                 >
                   {role.name}
                 </button>

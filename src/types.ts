@@ -180,11 +180,12 @@ export type Session = {
 // Games are config, not code. Two layers: a game defines the shape of play, a
 // script defines the role list and extends a game.
 
-// Tone is a named colour slot (maps to a --color-* variable), not an alignment.
-// Teams and relations each choose one. Townsfolk are 'good' (green) and Outsiders
-// 'blue' so the two good-team groups read apart; later this becomes a per-team
-// colour in config rather than a fixed vocabulary here.
-export type Tone = 'good' | 'evil' | 'neutral' | 'info' | 'blue' | 'purple'
+// A base semantic tone — the four palette colours shared across every game: the
+// good/evil read poles, neutral, and info. These map to `--color-*` variables and are
+// what the Settings palette customises. Relations use a tone; team colours do NOT come
+// from this fixed list — they're game-config data (see TeamConfig.color), so a game
+// brings exactly the team colours it needs instead of squeezing into global slots.
+export type Tone = 'good' | 'evil' | 'neutral' | 'info'
 
 export type RelationConfig = {
   id: RelationId
@@ -226,14 +227,19 @@ export type TeamConfig = {
   id: TeamId
   name: string
   /**
-   * Which side this team is on — drives reads and post-game scoring. Kept
-   * distinct from `tone` (colour) because the two genuinely diverge: BotC
-   * outsiders are aligned `good` but toned `blue` so the good-team groups read
-   * apart. A team can be `neutral` (Werewolf/Kraken third parties).
+   * Which side this team is on — drives reads and post-game scoring. Kept distinct
+   * from `color` because the two genuinely diverge: BotC outsiders are aligned `good`
+   * but coloured blue so the good-team groups read apart. Can be `neutral`.
    */
   alignment: Alignment
-  /** Colour slot for tokens/labels (maps to a --color-* variable). */
-  tone: Tone
+  /**
+   * The team's display colour: either a base-tone name ('good' | 'evil' | 'neutral' |
+   * 'info' — tracks the palette and the colourblind preset) or a literal CSS colour
+   * like '#4c9aff' (its own hue, fixed across presets). Game-config data, not a fixed
+   * global slot — a game brings exactly the colours it needs. (Legacy configs used a
+   * `tone` slot; it's normalised to `color` on entry — see config/index.ts.)
+   */
+  color: string
 }
 
 export type GameConfig = {

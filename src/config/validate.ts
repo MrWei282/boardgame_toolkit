@@ -8,8 +8,15 @@ import type { Alignment, GameConfig, ScriptConfig, Tone } from '../types'
 
 export type Valid<T> = { ok: true; value: T } | { ok: false; errors: string[] }
 
-const TONES: Tone[] = ['good', 'evil', 'neutral', 'info', 'blue', 'purple']
+const TONES: Tone[] = ['good', 'evil', 'neutral', 'info']
 const ALIGNMENTS: Alignment[] = ['good', 'evil', 'neutral']
+
+const HEX = /^#([0-9a-f]{3}|[0-9a-f]{4}|[0-9a-f]{6}|[0-9a-f]{8})$/i
+
+/** A valid team colour: a base tone, a legacy slot name, or a hex. */
+function isTeamColor(v: string): boolean {
+  return TONES.includes(v as Tone) || v === 'blue' || v === 'purple' || HEX.test(v)
+}
 
 // --- small typed checks ------------------------------------------------------
 
@@ -89,7 +96,9 @@ export function validateGame(input: unknown): Valid<GameConfig> {
       if (!str(t.name)) e.add(`${p}.name`, 'is required')
       if (!ALIGNMENTS.includes(t.alignment as Alignment))
         e.add(`${p}.alignment`, `must be one of ${ALIGNMENTS.join(', ')}`)
-      if (!TONES.includes(t.tone as Tone)) e.add(`${p}.tone`, `must be one of ${TONES.join(', ')}`)
+      const color = str(t.color) ? t.color : str(t.tone) ? t.tone : undefined
+      if (!color || !isTeamColor(color))
+        e.add(`${p}.color`, 'is required — a base tone (good/evil/neutral/info) or a colour like "#4c9aff"')
     })
   }
 

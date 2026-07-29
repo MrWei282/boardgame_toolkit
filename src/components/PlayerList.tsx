@@ -1,7 +1,7 @@
 import { getRole, getTeam } from '../config'
 import { isAlive } from '../projections'
 import { currentReadValue, currentRoleIds, useStore } from '../store'
-import { toneChip } from '../tone'
+import { teamChipStyle } from '../tone'
 import type { GameConfig, Phase, PlayerId, ScriptConfig, Session } from '../types'
 import { LeanControl } from './LeanControl'
 
@@ -43,14 +43,15 @@ export function PlayerList({ session, game, script, onTagPlayer, onEditLife, at 
                   <span className="mt-1 flex flex-wrap gap-1">
                     {roleIds.slice(0, 3).map((id) => {
                       const role = getRole(script, id)
-                      const tone = role ? getTeam(game, role.team)?.tone : undefined
+                      const color = role ? getTeam(game, role.team)?.color : undefined
                       return (
                         <span
                           key={id}
                           className={[
                             'rounded border px-1.5 py-0.5 text-[11px] leading-none',
-                            tone ? toneChip[tone] : 'border-line text-muted',
+                            color ? '' : 'border-line text-muted',
                           ].join(' ')}
+                          style={color ? teamChipStyle(color) : undefined}
                         >
                           {role?.name ?? id}
                         </span>
