@@ -231,6 +231,18 @@ export function removeScriptConfig(id: string) {
   rebuildRegistries()
 }
 
+/**
+ * Set one team's display colour on a game. Colour is purely cosmetic — it references
+ * nothing and can't orphan a saved session — so unlike structural config edits this is
+ * safe to do in place on an existing game.
+ */
+export function updateTeamColor(gameId: string, teamId: string, color: string) {
+  const game = GAMES[gameId]
+  if (!game) return
+  saveGame({ ...game, teams: game.teams.map((t) => (t.id === teamId ? { ...t, color } : t)) })
+  rebuildRegistries()
+}
+
 /** Bring the shipped default games/scripts back (even deleted ones). */
 export function restoreDefaultConfigs() {
   restoreDefaultsInStore(DEFAULT_GAMES, DEFAULT_SCRIPTS)

@@ -268,12 +268,15 @@ Notes on why it looks like this:
   nominate (neutral/yellow), and — since 6.5 — **info** (blue). A self-directed entry
   (a role *claim*, speaker == target) draws no self-loop: `deriveEdges` skips
   `target === speaker`. Votes never draw an edge — they roll up under their
-  nomination. **Relations can be toggled off** the diagram from the legend
-  (`hiddenRelations` in `DiagramView`, filtering `deriveEdges`) to declutter when
-  several colours fly at once. The **relation legend renders above the circle** (7.3),
-  not below, so it's out of the thumb's token-tapping zone. Team colour comes from
-  `team.color` (7.3b): townsfolk green, outsider blue (`#4c9aff`), minion purple
-  (`#bf5af2`), demon red. Team-coloured bits (token wedges, role-guess chips) resolve
+  nomination. **Relations can be toggled off** the diagram (`hiddenRelations` in
+  `DiagramView`, filtering `deriveEdges`) to declutter when several colours fly at once —
+  via a compact **eye/Arrows filter button** (`RelationFilter`, top-right above the
+  circle, 7.3c) that opens a hide/show dropdown and shows a `−N` badge; it replaced the
+  always-on chip row, which sat in the thumb's token-tapping zone and drew accidental
+  taps. Team colour comes from `team.color` (7.3b): townsfolk green, outsider blue
+  (`#4c9aff`), minion purple (`#bf5af2`), demon red; **editable per game in Settings →
+  Games & scripts** (`updateTeamColor` — cosmetic, so safe to edit in place unlike
+  structural config). Team-coloured bits (token wedges, role-guess chips) resolve
   via `resolveTeamColor`/`teamChipStyle` (inline styles + `color-mix`, since a hex can't
   be a Tailwind class); relations/reads keep the four base-tone Tailwind classes.
 - Role guesses render as N equal team-toned wedges on the token, **and (6.5) as text

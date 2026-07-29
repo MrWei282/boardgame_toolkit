@@ -5,6 +5,7 @@ import {
   removeScriptConfig,
   restoreDefaultConfigs,
   scriptsForGame,
+  updateTeamColor,
 } from '../config'
 import { useSettings } from '../settings'
 import {
@@ -21,6 +22,13 @@ import type { Tone } from '../types'
 
 const TONE_LABELS: Record<Tone, string> = { good: 'Good', evil: 'Evil', neutral: 'Neutral', info: 'Info' }
 const TONE_ORDER: Tone[] = ['good', 'evil', 'neutral', 'info']
+const BASE_TONES = new Set<string>(TONE_ORDER)
+
+/** A team colour as a hex the <input type="color"> can show: base tones resolve to
+ *  their current palette hex; a literal colour is returned as-is. */
+function teamHex(color: string, palette: string, custom: Partial<Record<Tone, string>>): string {
+  return BASE_TONES.has(color) ? effectiveColor(palette, color as Tone, custom) : color
+}
 
 type ImportOutcome =
   | { ok: true; summary: { sessions: number; games: number; scripts: number; settings: boolean } }
@@ -251,6 +259,29 @@ export function Settings({ onClose }: { onClose: () => void }) {
                     >
                       Remove
                     </button>
+                  </div>
+
+                  {/* Team colours — cosmetic, so safe to edit in place. A base-tone
+                      team tracks the palette; picking a colour pins it to that hex. */}
+                  <div className="mt-2 flex flex-wrap gap-1.5 border-t border-line pt-2">
+                    {g.teams.map((team) => (
+                      <label
+                        key={team.id}
+                        className="flex items-center gap-1.5 rounded-lg border border-line bg-raised px-2 py-1"
+                      >
+                        <input
+                          type="color"
+                          value={teamHex(team.color, palette, customColors)}
+                          onChange={(e) => {
+                            updateTeamColor(g.id, team.id, e.target.value)
+                            bump()
+                          }}
+                          className="h-5 w-5 shrink-0 cursor-pointer rounded border-0 bg-transparent p-0"
+                          aria-label={`${team.name} colour`}
+                        />
+                        <span className="text-[11px]">{team.name}</span>
+                      </label>
+                    ))}
                   </div>
 
                   {scripts.length > 0 && (

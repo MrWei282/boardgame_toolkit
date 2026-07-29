@@ -125,9 +125,10 @@ export function DiagramView({
 
   return (
     <div>
-      {/* Above the circle, not below it — under the circle it sat right where the
-          thumb reaches to tap tokens, inviting accidental hide-toggles while logging. */}
-      <Legend game={game} hidden={hiddenRelations} onToggle={toggleRelation} />
+      {/* A single compact eye button (top-right) opening a hide/show list, instead of
+          a row of always-on chips under the circle that drew accidental taps while
+          logging and crowded the view. */}
+      <RelationFilter game={game} hidden={hiddenRelations} onToggle={toggleRelation} />
 
       <SeatCircle
         session={session}
@@ -269,7 +270,7 @@ export function DiagramView({
   )
 }
 
-function Legend({
+function RelationFilter({
   game,
   hidden,
   onToggle,
@@ -278,29 +279,51 @@ function Legend({
   hidden: Set<string>
   onToggle: (id: string) => void
 }) {
+  const [open, setOpen] = useState(false)
   const edgeRelations = game.relations.filter((r) => r.edge)
+  const hiddenCount = edgeRelations.filter((r) => hidden.has(r.id)).length
+
   return (
-    <div className="mt-2 rounded-xl border border-line bg-surface px-3 py-2.5">
-      <div className="flex flex-wrap gap-2">
-        {edgeRelations.map((r) => {
-          const off = hidden.has(r.id)
-          return (
-            <button
-              key={r.id}
-              onClick={() => onToggle(r.id)}
-              aria-pressed={!off}
-              className={[
-                'flex items-center gap-1.5 rounded-lg border border-line px-2 py-1 text-xs',
-                off ? 'bg-raised text-muted/50 line-through' : 'bg-raised text-ink',
-              ].join(' ')}
-            >
-              <span className={`text-base leading-none ${off ? 'text-muted/40' : toneText[r.tone]}`}>→</span>
-              {r.label}
-            </button>
-          )
-        })}
-      </div>
-      <p className="mt-1.5 text-[11px] text-muted">Tap a relation to hide its arrows · tap a token to focus.</p>
+    <div className="relative mb-1 flex justify-end">
+      <button
+        onClick={() => setOpen((v) => !v)}
+        aria-label="Filter arrows"
+        aria-expanded={open}
+        className={[
+          'flex items-center gap-1.5 rounded-lg border px-2.5 py-1 text-xs active:bg-raised',
+          hiddenCount > 0 ? 'border-info/50 bg-info/10 text-info' : 'border-line bg-surface text-muted',
+        ].join(' ')}
+      >
+        <span aria-hidden className="text-sm leading-none">
+          {hiddenCount > 0 ? '🚫' : '👁'}
+        </span>
+        Arrows
+        {hiddenCount > 0 && <span className="tabular-nums">−{hiddenCount}</span>}
+      </button>
+
+      {open && (
+        <>
+          {/* Tap-out layer. */}
+          <div className="fixed inset-0 z-10" onClick={() => setOpen(false)} />
+          <div className="absolute top-full right-0 z-20 mt-1 w-48 rounded-xl border border-line bg-surface p-1.5 shadow-xl">
+            <p className="px-2 pt-1 pb-0.5 text-[10px] tracking-wide text-muted uppercase">Show arrows</p>
+            {edgeRelations.map((r) => {
+              const off = hidden.has(r.id)
+              return (
+                <button
+                  key={r.id}
+                  onClick={() => onToggle(r.id)}
+                  className="flex w-full items-center gap-2 rounded-lg px-2 py-1.5 text-sm active:bg-raised"
+                >
+                  <span className={`text-base leading-none ${off ? 'text-muted/40' : toneText[r.tone]}`}>→</span>
+                  <span className={off ? 'text-muted/50 line-through' : 'text-ink'}>{r.label}</span>
+                  <span className={`ml-auto text-xs ${off ? 'text-muted/40' : 'text-info'}`}>{off ? '' : '✓'}</span>
+                </button>
+              )
+            })}
+          </div>
+        </>
+      )}
     </div>
   )
 }
