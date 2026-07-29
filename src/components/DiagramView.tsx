@@ -125,6 +125,10 @@ export function DiagramView({
 
   return (
     <div>
+      {/* Above the circle, not below it — under the circle it sat right where the
+          thumb reaches to tap tokens, inviting accidental hide-toggles while logging. */}
+      <Legend game={game} hidden={hiddenRelations} onToggle={toggleRelation} />
+
       <SeatCircle
         session={session}
         game={game}
@@ -134,8 +138,6 @@ export function DiagramView({
         onBackgroundTap={() => setFocusedId(null)}
         hiddenRelations={hiddenRelations}
       />
-
-      <Legend game={game} hidden={hiddenRelations} onToggle={toggleRelation} />
 
       {/* Tapping a token opens a centered card (tap outside to dismiss), so the
           detail is where the thumb is instead of below the fold. It leads with

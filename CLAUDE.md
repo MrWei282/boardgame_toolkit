@@ -89,12 +89,14 @@ quadratic bezier SVG paths. Hand-rolled, ~150 lines.
   as an SPA; `wrangler.jsonc`, name `boardgame-toolkit`) — **auto-deploys on push to
   `main`**. Offline-first — game venues have bad wifi.
 - Storage: `localStorage` + JSON blob for now, behind a one-file `storage.ts`
-  boundary so swapping to IndexedDB/Dexie later is contained. Two independent keys:
-  `deduction-notes` (the versioned session blob, v3) and `deduction-config-store` (all
-  games/scripts + `seededIds`; see "no built-in games"). `share.ts` is the portability
-  layer over both — a `Bundle` (kind `botc-toolkit/bundle`) carrying any subset of
+  boundary so swapping to IndexedDB/Dexie later is contained. Three independent keys:
+  `deduction-notes` (the versioned session blob, v3), `deduction-config-store` (all
+  games/scripts + `seededIds`; see "no built-in games"), and `deduction-settings`
+  (`settings.ts`: colour `palette`, later `language`). `share.ts` is the portability
+  layer over all three — a `Bundle` (kind `botc-toolkit/bundle`) carrying any subset of
   sessions/configs/settings, exported to / imported from a JSON file (`parseBundle`
-  never throws; sessions import as a copy on id-collision, configs upsert).
+  never throws; sessions import as a copy on id-collision, configs upsert, settings
+  replace on a full-backup import).
 - PWA via `vite-plugin-pwa`
 - No accounts, no auth, no sync until stage 7.
 
@@ -354,11 +356,22 @@ Ship one stage at a time; do not build a large prototype in one go.
      Per-script delete uses `removeScriptConfig`. The setup **"Import a game"** sheet was
      reverted to *import-only* — managing/deleting configs is a Settings concern now.
    - *7.2* Freeform empty-state polish (setup already has a zero-games Restore state).
-   - *7.3* Colour presets (Default + Okabe-Ito colourblind-safe) — override the six
-     `--color-*` vars at runtime; every colour already resolves through them.
+   - *7.3* **Done** — colour presets: `theme.ts` (Default + Okabe-Ito colourblind-safe)
+     overrides the six `--color-*` vars on `<html>` at runtime (Default *clears* the
+     overrides so index.css governs); every colour already resolves through them, so UI
+     + diagram recolour at once. A `settings.ts` Zustand store (localStorage key
+     `deduction-settings`) holds `palette`; `main.tsx` applies it before first paint (no
+     flash); an **Appearance** section in `Settings` picks it; the palette rides along in
+     the backup bundle (`Bundle.settings`, applied on import).
    - *7.4* Localisation EN / 中文, **UI chrome only** (no config-content translation,
-     no config schema change); language + palette live in a `settings.ts` store and
-     ride along in the backup bundle.
+     no config schema change); `language` joins the `settings.ts` store and the bundle.
+   - *7.5* **In-app config editor (create-only).** Duplicate/create a script (role list)
+     or a game (name, player count, team names, phases) from the app — never edits an
+     existing config in place (ids are referential; create-only sidesteps orphaning).
+   - *7.6* **Relation editing** — a "voting" toggle that wires the `nominate`↔`vote`
+     pair for you (instead of raw `collectsVotesAs`), plus adding simple extra verbs;
+     raw relation internals stay JSON-only. (A game config *already* supports a custom
+     `relations` array today — 7.6 only adds safe UI over it.)
    Still-deferred threads: approve/reject vote *outcomes*; post-mortem showing *when* a
    read turned right (from read history); another diagram-zoom pass.
 

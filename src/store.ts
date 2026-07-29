@@ -1,5 +1,6 @@
 import { create } from 'zustand'
 import { getGame, registerImportedConfigs } from './config'
+import { useSettings } from './settings'
 import type { ParsedBundle } from './share'
 import { loadAll, saveAll, VERSION } from './storage'
 import type { Assertion, GameConfig, GameEvent, Phase, PlayerId, ReadTag, Reveal, RoleId, RoleTag, Session } from './types'
@@ -224,7 +225,8 @@ export const useStore = create<Store>()((set, get) => {
       }
       set({ sessions: next })
       void saveAll({ version: VERSION, currentSessionId, sessions: next })
-      // Bundle settings (palette/language) are applied once those stores exist (7.3/7.4).
+      // A full backup carries app settings (palette now, language later) — apply them.
+      if (bundle.settings?.palette) useSettings.getState().setPalette(bundle.settings.palette)
     },
 
     // Phase order comes from the game config now (see stepPhase).

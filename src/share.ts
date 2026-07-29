@@ -1,5 +1,6 @@
 import { allGames, allScripts, getGame, getScript, scriptsForGame } from './config'
 import { validateGame, validateScript } from './config/validate'
+import { useSettings } from './settings'
 import type { GameConfig, ScriptConfig, Session } from './types'
 
 // Portability, no backend. A Bundle is a self-contained, portable snapshot that can
@@ -34,7 +35,7 @@ export type ParsedBundle = {
 
 // --- building ----------------------------------------------------------------
 
-/** Everything: all sessions + all configs (+ settings later). The multi-device backup. */
+/** Everything: all sessions + all configs + settings. The multi-device backup. */
 export function buildBackupBundle(sessions: Session[]): Bundle {
   return {
     kind: KIND,
@@ -43,6 +44,7 @@ export function buildBackupBundle(sessions: Session[]): Bundle {
     sessions,
     games: allGames(),
     scripts: allScripts(),
+    settings: { palette: useSettings.getState().palette },
   }
 }
 

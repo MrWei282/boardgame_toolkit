@@ -6,6 +6,7 @@ import {
   restoreDefaultConfigs,
   scriptsForGame,
 } from '../config'
+import { useSettings } from '../settings'
 import {
   buildBackupBundle,
   buildConfigBundle,
@@ -15,6 +16,8 @@ import {
   serializeBundle,
 } from '../share'
 import { useSessions, useStore } from '../store'
+import { PALETTES } from '../theme'
+import type { Tone } from '../types'
 
 type ImportOutcome =
   | { ok: true; summary: { sessions: number; games: number; scripts: number; settings: boolean } }
@@ -23,6 +26,8 @@ type ImportOutcome =
 export function Settings({ onClose }: { onClose: () => void }) {
   const sessions = useSessions()
   const importBundle = useStore((s) => s.importBundle)
+  const palette = useSettings((s) => s.palette)
+  const setPalette = useSettings((s) => s.setPalette)
   const fileInput = useRef<HTMLInputElement>(null)
   const [outcome, setOutcome] = useState<ImportOutcome | null>(null)
   // The config registries mutate in place; bump this to re-read them after a change.
@@ -120,6 +125,44 @@ export function Settings({ onClose }: { onClose: () => void }) {
             Imported {summarize(outcome.summary)}.
           </p>
         )}
+      </section>
+
+      <section className="mt-8">
+        <h2 className="mb-1 text-[11px] tracking-wide text-muted uppercase">Appearance</h2>
+        <p className="mb-3 text-xs text-muted">
+          The colours used for teams, arrows and reads across the app and diagram.
+        </p>
+        <div className="space-y-2">
+          {PALETTES.map((p) => {
+            const selected = p.id === palette
+            return (
+              <button
+                key={p.id}
+                onClick={() => setPalette(p.id)}
+                aria-pressed={selected}
+                className={[
+                  'flex w-full items-center gap-3 rounded-xl border px-3 py-3 text-left active:bg-line',
+                  selected ? 'border-info bg-info/10' : 'border-line bg-raised',
+                ].join(' ')}
+              >
+                <span className="flex shrink-0 gap-1">
+                  {(['good', 'evil', 'neutral', 'info', 'blue', 'purple'] as Tone[]).map((t) => (
+                    <span
+                      key={t}
+                      className="h-4 w-4 rounded-full"
+                      style={{ backgroundColor: p.colors[t] }}
+                    />
+                  ))}
+                </span>
+                <span className="min-w-0 flex-1">
+                  <span className="block text-sm font-medium">{p.name}</span>
+                  <span className="block text-[11px] text-muted">{p.description}</span>
+                </span>
+                {selected && <span className="shrink-0 text-info">✓</span>}
+              </button>
+            )
+          })}
+        </div>
       </section>
 
       <section className="mt-8">
