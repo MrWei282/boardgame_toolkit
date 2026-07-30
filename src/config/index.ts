@@ -1,5 +1,7 @@
 import type {
+  Alignment,
   GameConfig,
+  PhaseDef,
   RelationConfig,
   RelationId,
   RoleConfig,
@@ -247,4 +249,99 @@ export function updateTeamColor(gameId: string, teamId: string, color: string) {
 export function restoreDefaultConfigs() {
   restoreDefaultsInStore(DEFAULT_GAMES, DEFAULT_SCRIPTS)
   rebuildRegistries()
+}
+
+// --- in-app config creation (7.5) --------------------------------------------
+// The editor is create-only: it always mints a *new* config with a fresh id rather
+// than editing an existing one in place, because ids are referential (a session's
+// scriptId, a role's team) and editing an id would orphan saved games. Ids are
+// generated from the name so the user never types them.
+
+function slugify(name: string): string {
+  return name.toLowerCase().trim().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '')
+}
+
+/** A slug not already taken, disambiguated with -2, -3, … (or a fallback base). */
+function uniqueId(base: string, taken: Set<string>, fallback: string): string {
+  let id = base || fallback
+  if (!taken.has(id)) return id
+  let i = 2
+  while (taken.has(`${id}-${i}`)) i++
+  return `${id}-${i}`
+}
+
+export type CreateResult = { ok: true; id: string } | { ok: false; errors: string[] }
+
+/** Create a new script (role list) extending an existing game. Role ids are derived
+ *  from role names; the whole thing is validated before it's saved. */
+export function createScriptConfig(input: {
+  name: string
+  gameId: string
+  roles: { name: string; team: string }[]
+}): CreateResult {
+  const game = GAMES[input.gameId]
+  const id = uniqueId(slugify(input.name), new Set(Object.keys(SCRIPTS)), 'script')
+  const roleIds = new Set<string>()
+  const roles: RoleConfig[] = input.roles
+    .filter((r) => r.name.trim())
+    .map((r) => {
+      const rid = uniqueId(slugify(r.name), roleIds, 'role')
+      roleIds.add(rid)
+      return { id: rid, name: r.name.trim(), team: r.team }
+    })
+  const script = { id, gameId: input.gameId, name: input.name.trim(), roles }
+  const res = validateScript(script, game ? new Set(game.teams.map((t) => t.id)) : null)
+  if (!res.ok) return { ok: false, errors: res.errors }
+  saveScript(res.value)
+  rebuildRegistries()
+  return { ok: true, id }
+}
+
+/** Create a new game (shape of play). Team/phase ids are derived from their names;
+ *  relations are omitted so the game inherits the default vocabulary. */
+export function createGameConfig(input: {
+  name: string
+  minPlayers: number
+  maxPlayers: number
+  teams: { name: string; alignment: Alignment; color: string }[]
+  phases: { setup: { label: string; short: string }[]; cycle: { label: string; short: string }[] }
+}): CreateResult {
+  const id = uniqueId(slugify(input.name), new Set(Object.keys(GAMES)), 'game')
+
+  const teamIds = new Set<string>()
+  const teams: TeamConfig[] = input.teams
+    .filter((t) => t.name.trim())
+    .map((t) => {
+      const tid = uniqueId(slugify(t.name), teamIds, 'team')
+      teamIds.add(tid)
+      return { id: tid, name: t.name.trim(), alignment: t.alignment, color: t.color }
+    })
+
+  // Phase ids are unique across setup *and* cycle (both share the id space, since an
+  // entry stores just a phase id).
+  const phaseIds = new Set<string>()
+  const toPhases = (arr: { label: string; short: string }[]): PhaseDef[] =>
+    arr
+      .filter((p) => p.label.trim() || p.short.trim())
+      .map((p) => {
+        const pid = uniqueId(slugify(p.label) || slugify(p.short), phaseIds, 'phase')
+        phaseIds.add(pid)
+        return { id: pid, label: p.label.trim() || p.short.trim(), short: p.short.trim() || p.label.trim() }
+      })
+  const setup = toPhases(input.phases.setup)
+  const cycle = toPhases(input.phases.cycle)
+
+  const game = {
+    id,
+    name: input.name.trim(),
+    minPlayers: input.minPlayers,
+    maxPlayers: input.maxPlayers,
+    phases: setup.length ? { setup, cycle } : { cycle },
+    teams,
+  }
+  const res = validateGame(game)
+  if (!res.ok) return { ok: false, errors: res.errors }
+  saveGame(res.value)
+  rebuildRegistries()
+  return { ok: true, id }
 }

@@ -20,6 +20,9 @@ import {
 import { useSessions, useStore } from '../store'
 import { effectiveColor, PALETTES } from '../theme'
 import type { Tone } from '../types'
+import { ScriptEditor } from './ScriptEditor'
+
+type EditorState = { kind: 'script'; gameId: string; initial?: { name: string; roles: { name: string; team: string }[] } }
 
 const TONE_ORDER: Tone[] = ['good', 'evil', 'neutral', 'info']
 const BASE_TONES = new Set<string>(TONE_ORDER)
@@ -51,6 +54,7 @@ export function Settings({ onClose }: { onClose: () => void }) {
   // The config registries mutate in place; bump this to re-read them after a change.
   const [rev, setRev] = useState(0)
   const bump = () => setRev((v) => v + 1)
+  const [editor, setEditor] = useState<EditorState | null>(null)
 
   function exportAll() {
     if (sessions.length === 0) return
@@ -67,6 +71,22 @@ export function Settings({ onClose }: { onClose: () => void }) {
     }
     importBundle(res.bundle)
     setOutcome({ ok: true, summary: res.bundle.summary })
+  }
+
+  // The create-only editor replaces the Settings screen while open; saving registers
+  // a new config and returns here (bumped so the list re-reads).
+  if (editor) {
+    return (
+      <ScriptEditor
+        gameId={editor.gameId}
+        initial={editor.initial}
+        onCancel={() => setEditor(null)}
+        onCreated={() => {
+          setEditor(null)
+          bump()
+        }}
+      />
+    )
   }
 
   // A config can't be removed while a saved game depends on it (getGame/getScript
@@ -296,29 +316,45 @@ export function Settings({ onClose }: { onClose: () => void }) {
                     ))}
                   </div>
 
-                  {scripts.length > 0 && (
-                    <ul className="mt-2 space-y-1 border-t border-line pt-2">
-                      {scripts.map((s) => {
-                        const sInUse = scriptInUse.has(s.id)
-                        return (
-                          <li key={s.id} className="flex items-center gap-2 pl-1">
-                            <span className="min-w-0 flex-1 truncate text-xs text-ink">{s.name}</span>
-                            {sInUse && <span className="shrink-0 text-[10px] text-muted">{t('settings.inUse')}</span>}
-                            <button
-                              onClick={() => {
-                                removeScriptConfig(s.id)
-                                bump()
-                              }}
-                              disabled={sInUse}
-                              className="shrink-0 rounded-md border border-line px-2 py-0.5 text-[11px] text-muted active:bg-raised disabled:opacity-40"
-                            >
-                              {t('common.remove')}
-                            </button>
-                          </li>
-                        )
-                      })}
-                    </ul>
-                  )}
+                  <div className="mt-2 space-y-1 border-t border-line pt-2">
+                    {scripts.map((s) => {
+                      const sInUse = scriptInUse.has(s.id)
+                      return (
+                        <div key={s.id} className="flex items-center gap-2 pl-1">
+                          <span className="min-w-0 flex-1 truncate text-xs text-ink">{s.name}</span>
+                          {sInUse && <span className="shrink-0 text-[10px] text-muted">{t('settings.inUse')}</span>}
+                          <button
+                            onClick={() =>
+                              setEditor({
+                                kind: 'script',
+                                gameId: g.id,
+                                initial: { name: s.name, roles: s.roles.map((r) => ({ name: r.name, team: r.team })) },
+                              })
+                            }
+                            className="shrink-0 rounded-md border border-line px-2 py-0.5 text-[11px] text-muted active:bg-raised"
+                          >
+                            {t('common.duplicate')}
+                          </button>
+                          <button
+                            onClick={() => {
+                              removeScriptConfig(s.id)
+                              bump()
+                            }}
+                            disabled={sInUse}
+                            className="shrink-0 rounded-md border border-line px-2 py-0.5 text-[11px] text-muted active:bg-raised disabled:opacity-40"
+                          >
+                            {t('common.remove')}
+                          </button>
+                        </div>
+                      )
+                    })}
+                    <button
+                      onClick={() => setEditor({ kind: 'script', gameId: g.id })}
+                      className="mt-1 w-full rounded-md border border-dashed border-line py-1.5 text-[11px] text-muted active:bg-raised"
+                    >
+                      {t('settings.newScript')}
+                    </button>
+                  </div>
                 </li>
               )
             })}
