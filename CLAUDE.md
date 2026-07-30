@@ -397,9 +397,15 @@ Ship one stage at a time; do not build a large prototype in one go.
      (一定坏人…) so LeanControl segments stay one row — **the app is now fully bilingual
      across every screen.** (Minor: English plurals like "1 scripts" not handled — zh has
      no plural, kept simple.)
-   - *7.5* **In-app config editor (create-only).** Duplicate/create a script (role list)
-     or a game (name, player count, team names, phases) from the app — never edits an
-     existing config in place (ids are referential; create-only sidesteps orphaning).
+   - *7.5* **Done — in-app config editor (create-only).** `ScriptEditor` (name + role
+     list, each role a name + team) and `GameEditor` (name, player count, teams with
+     alignment + colour, setup/cycle phases). Both **only ever mint a new config** —
+     `createScriptConfig`/`createGameConfig` (config/index.ts) derive ids from names
+     (`slugify`/`uniqueId`), omit relations (inherit defaults), and validate before
+     saving; nothing is edited in place, since ids are referential (a session's
+     scriptId, a role's team) and editing one would orphan saved games. Reached from
+     Settings → Games & scripts: **+ New script**/**+ New game** and **Duplicate** per
+     item (seeds the editor from an existing config).
    - *7.6* **Relation editing** — a "voting" toggle that wires the `nominate`↔`vote`
      pair for you (instead of raw `collectsVotesAs`), plus adding simple extra verbs;
      raw relation internals stay JSON-only. (A game config *already* supports a custom
