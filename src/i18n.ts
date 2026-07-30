@@ -147,6 +147,21 @@ const en: Dict = {
   'log.voted': 'Voted: {names}',
   'log.event': 'Event',
 
+  // post-game review
+  'review.readsRight': 'Reads right',
+  'review.rolesRight': 'Roles right',
+  'review.read': 'read',
+  'review.guess': 'guess',
+  'review.noRead': 'no read',
+  'review.editResults': 'Edit results',
+  'review.truthHint':
+    "What was everyone, really? Set each player's alignment — and role if you know it. Saving reveals the post-mortem.",
+  'review.rolePrompt': 'Role — tap to set (optional)',
+  'review.saveResults': 'Save results & see post-mortem',
+  'review.roleTitle': 'Role — {name}',
+  'review.role': 'Role',
+  'review.clearRole': 'Clear role',
+
   // entry sheets
   'sheet.editEntry': 'Edit entry',
   'sheet.logSpeech': 'Log what was said',
@@ -339,6 +354,19 @@ const zh: Dict = {
   'log.voted': '投票：{names}',
   'log.event': '事件',
 
+  'review.readsRight': '判读正确',
+  'review.rolesRight': '角色正确',
+  'review.read': '判读',
+  'review.guess': '猜测',
+  'review.noRead': '未判读',
+  'review.editResults': '编辑结果',
+  'review.truthHint': '大家实际上都是什么？为每位玩家设定阵营 —— 知道角色也可填上。保存后即可查看复盘。',
+  'review.rolePrompt': '角色 —— 点按设定（可选）',
+  'review.saveResults': '保存结果并查看复盘',
+  'review.roleTitle': '角色 —— {name}',
+  'review.role': '角色',
+  'review.clearRole': '清除角色',
+
   'sheet.editEntry': '编辑记录',
   'sheet.logSpeech': '记录发言',
   'sheet.save': '保存',
@@ -382,11 +410,11 @@ const zh: Dict = {
   'entry.deleteEntry': '删除这条记录？',
   'entry.deleteEvent': '删除这个事件？',
 
-  'lean.-2': '一定是坏人',
-  'lean.-1': '可能是坏人',
+  'lean.-2': '一定坏人',
+  'lean.-1': '可能坏人',
   'lean.0': '中立',
-  'lean.1': '可能是好人',
-  'lean.2': '一定是好人',
+  'lean.1': '可能好人',
+  'lean.2': '一定好人',
 
   'relation.vouch.label': '担保',
   'relation.vouch.phrase': '担保',

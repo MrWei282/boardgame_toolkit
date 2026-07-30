@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import { getRole } from '../config'
+import { useT } from '../i18n'
 import { roleAlignment } from '../review'
 import { useStore } from '../store'
 import type { Alignment, GameConfig, PlayerId, Reveal, RoleId, ScriptConfig, Session } from '../types'
@@ -9,10 +10,10 @@ import { Sheet } from './Sheet'
 type Draft = { roleId?: RoleId; alignment: Alignment }
 
 // good | neutral | evil — neutral sits in the middle, mirroring the read scale.
-const ALIGN_OPTIONS: { id: Alignment; label: string; on: string }[] = [
-  { id: 'good', label: 'good', on: 'bg-good/25 text-good' },
-  { id: 'neutral', label: 'neutral', on: 'bg-neutral/25 text-neutral' },
-  { id: 'evil', label: 'evil', on: 'bg-evil/25 text-evil' },
+const ALIGN_OPTIONS: { id: Alignment; on: string }[] = [
+  { id: 'good', on: 'bg-good/25 text-good' },
+  { id: 'neutral', on: 'bg-neutral/25 text-neutral' },
+  { id: 'evil', on: 'bg-evil/25 text-evil' },
 ]
 
 /**
@@ -33,6 +34,7 @@ export function TruthEntry({
   onSaved: () => void
 }) {
   const setTruth = useStore((s) => s.setTruth)
+  const { t } = useT()
 
   const [draft, setDraft] = useState<Record<PlayerId, Draft>>(() => {
     const init: Record<PlayerId, Draft> = {}
@@ -72,10 +74,7 @@ export function TruthEntry({
 
   return (
     <div>
-      <p className="mb-3 text-xs text-muted">
-        What was everyone, really? Set each player's alignment — and role if you know it.
-        Saving reveals the post-mortem.
-      </p>
+      <p className="mb-3 text-xs text-muted">{t('review.truthHint')}</p>
 
       <ul className="space-y-1.5">
         {session.players.map((p) => {
@@ -97,7 +96,7 @@ export function TruthEntry({
                         d.alignment === opt.id ? opt.on : 'text-muted active:bg-raised',
                       ].join(' ')}
                     >
-                      {opt.label}
+                      {t(`tone.${opt.id}`)}
                     </button>
                   ))}
                 </div>
@@ -109,7 +108,7 @@ export function TruthEntry({
                 {roleName ? (
                   <span className="text-ink">{roleName}</span>
                 ) : (
-                  <span className="text-muted">Role — tap to set (optional)</span>
+                  <span className="text-muted">{t('review.rolePrompt')}</span>
                 )}
               </button>
             </li>
@@ -121,13 +120,13 @@ export function TruthEntry({
         onClick={save}
         className="mt-4 w-full rounded-xl bg-info py-3 font-semibold text-bg active:opacity-80"
       >
-        Save results & see post-mortem
+        {t('review.saveResults')}
       </button>
 
       <Sheet
         open={pickingFor !== null}
         onClose={() => setPickingFor(null)}
-        title={pickingName ? `Role — ${pickingName}` : 'Role'}
+        title={pickingName ? t('review.roleTitle', { name: pickingName }) : t('review.role')}
         footer={
           pickingFor && draft[pickingFor].roleId ? (
             <button
@@ -137,7 +136,7 @@ export function TruthEntry({
               }}
               className="w-full rounded-xl border border-line bg-raised py-3 text-sm text-muted active:bg-line"
             >
-              Clear role
+              {t('review.clearRole')}
             </button>
           ) : undefined
         }

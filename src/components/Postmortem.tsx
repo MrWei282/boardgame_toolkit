@@ -1,4 +1,5 @@
 import { getRole } from '../config'
+import { useT, type TFn } from '../i18n'
 import { scoreGuess, scoreRead } from '../review'
 import { currentReadValue, currentRoleIds } from '../store'
 import type { ScriptConfig, Session } from '../types'
@@ -18,6 +19,7 @@ export function Postmortem({
   script: ScriptConfig
   onEdit: () => void
 }) {
+  const { t } = useT()
   const truth = session.truth ?? []
 
   let readsMade = 0
@@ -48,8 +50,8 @@ export function Postmortem({
     <div>
       {/* Summary tiles. */}
       <div className="flex gap-2">
-        <ScoreTile label="Reads right" right={readsRight} made={readsMade} />
-        <ScoreTile label="Roles right" right={guessesRight} made={guessesMade} />
+        <ScoreTile label={t('review.readsRight')} right={readsRight} made={readsMade} />
+        <ScoreTile label={t('review.rolesRight')} right={guessesRight} made={guessesMade} />
       </div>
 
       <ul className="mt-3 space-y-1.5">
@@ -71,18 +73,18 @@ export function Postmortem({
                         : 'bg-good/15 text-good',
                   ].join(' ')}
                 >
-                  {role ?? actualAlign}
+                  {role ?? t(`tone.${actualAlign}`)}
                 </span>
               </div>
 
               <div className="mt-1 flex flex-wrap gap-x-4 gap-y-0.5 pl-7 text-xs">
                 <span className="text-muted">
-                  read:{' '}
-                  <span className={rs.made ? '' : 'text-muted/60'}>{readLabel(lean)}</span>{' '}
+                  {t('review.read')}:{' '}
+                  <span className={rs.made ? '' : 'text-muted/60'}>{readLabel(lean, t)}</span>{' '}
                   <Mark result={rs} />
                 </span>
                 <span className="text-muted">
-                  guess:{' '}
+                  {t('review.guess')}:{' '}
                   <span className={gs.made ? '' : 'text-muted/60'}>
                     {guessed.length ? guessed.map((id) => getRole(script, id)?.name ?? id).join(' / ') : '—'}
                   </span>{' '}
@@ -98,17 +100,15 @@ export function Postmortem({
         onClick={onEdit}
         className="mt-4 w-full rounded-xl border border-line bg-raised py-3 text-sm text-muted active:bg-line"
       >
-        Edit results
+        {t('review.editResults')}
       </button>
     </div>
   )
 }
 
-function readLabel(lean: number | null): string {
-  if (lean === null) return 'no read'
-  if (lean === 0) return 'neutral'
-  const side = lean > 0 ? 'good' : 'evil'
-  return Math.abs(lean) >= 2 ? `sure ${side}` : side
+/** The read as a short label — reuses the LeanControl scale so the two stay consistent. */
+function readLabel(lean: number | null, t: TFn): string {
+  return lean === null ? t('review.noRead') : t(`lean.${lean}`)
 }
 
 function Mark({ result }: { result: { made: boolean; correct: boolean } }) {
