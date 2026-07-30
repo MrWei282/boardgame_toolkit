@@ -392,9 +392,11 @@ Ship one stage at a time; do not build a large prototype in one go.
      content (game/role/team/phase names) is never translated. Translated: Home,
      SessionSetup, Settings (+ Language section), GameScreen, RoundBar, Timeline,
      DiagramView, SeatCircle controls, LeanControl, PlayerList, LogView, EntryActions,
-     and all four entry sheets. **Still English: the post-game Review tab
-     (`ReviewTab`/`Postmortem`/`TruthEntry`)** — a 7.4b follow-up. (Minor: English
-     plurals like "1 scripts" not handled — zh has no plural, kept simple.)
+     and all four entry sheets. *7.4b* added the post-game Review
+     (`ReviewTab`/`Postmortem`/`TruthEntry`) + shortened the zh read scale to 4 chars
+     (一定坏人…) so LeanControl segments stay one row — **the app is now fully bilingual
+     across every screen.** (Minor: English plurals like "1 scripts" not handled — zh has
+     no plural, kept simple.)
    - *7.5* **In-app config editor (create-only).** Duplicate/create a script (role list)
      or a game (name, player count, team names, phases) from the app — never edits an
      existing config in place (ids are referential; create-only sidesteps orphaning).
