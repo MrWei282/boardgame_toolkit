@@ -351,9 +351,10 @@ Ship one stage at a time; do not build a large prototype in one go.
    **centered tap-a-player card with quick-record**; entry buttons renamed/recoloured
    (Speech / Nomination / Event); default table size = range midpoint; minion purple /
    demon red. All merged to `main` and deployed.
-7. **In progress — Portability & modular configs (no backend).** Accounts / cloud
+7. **Done — Portability & modular configs (no backend).** Accounts / cloud
    sync were considered and **dropped** for a hobby project — with no backend, file
-   export/import *is* the multi-device and sharing story. Sub-iterations:
+   export/import *is* the multi-device and sharing story. All sub-iterations below
+   shipped and merged to `main`. Sub-iterations:
    - *7.0a* **Done** — modular config store: BotC/Avalon are seed data, every config
      deletable/editable/exportable (see "no built-in games"). `defaults.ts` +
      rewritten `custom.ts`/`index.ts`; `SessionSetup` handles zero games + restore.
@@ -404,14 +405,21 @@ Ship one stage at a time; do not build a large prototype in one go.
      (`slugify`/`uniqueId`), omit relations (inherit defaults), and validate before
      saving; nothing is edited in place, since ids are referential (a session's
      scriptId, a role's team) and editing one would orphan saved games. Reached from
-     Settings → Games & scripts: **+ New script**/**+ New game** and **Duplicate** per
-     item (seeds the editor from an existing config).
-   - *7.6* **Relation editing** — a "voting" toggle that wires the `nominate`↔`vote`
-     pair for you (instead of raw `collectsVotesAs`), plus adding simple extra verbs;
-     raw relation internals stay JSON-only. (A game config *already* supports a custom
-     `relations` array today — 7.6 only adds safe UI over it.)
+     Settings → Games & scripts: **+ New script**/**+ New game** and **Edit** per item
+     (which seeds the editor from an existing config and pre-fills the name with a
+     `_updated` suffix — a create-a-copy nudge, since the editor never mutates in place).
+     ScriptEditor's team chips show each team's config colour; GameEditor's team colour
+     auto-follows its alignment (a base-tone name tracking the palette) until a hex is
+     picked, which then sticks.
+
+8. **Next — Relation editing (deferred from 7).** A "voting" toggle in the game editor
+   that wires the `nominate`↔`vote` pair for you (instead of raw `collectsVotesAs`),
+   plus adding simple extra verbs; raw relation internals stay JSON-only. A game config
+   *already* supports a custom `relations` array today (validated, honored, surfaces in
+   the speech picker) — this iteration only adds safe UI over it.
    Still-deferred threads: approve/reject vote *outcomes*; post-mortem showing *when* a
-   read turned right (from read history); another diagram-zoom pass.
+   read turned right (from read history); another diagram-zoom pass; English plurals in
+   i18n ("1 scripts").
 
 Explicitly out of scope: multi-player shared sessions (turns a note-taking need
 into a distributed-consistency problem), Storyteller/moderator features (crowded
