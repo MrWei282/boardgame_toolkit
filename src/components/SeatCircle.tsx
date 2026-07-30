@@ -4,6 +4,7 @@ import { deriveEdges, neighboursOf } from '../diagram/edges'
 import { directedEdge, seatPoint, selfEdge, tokenWedge, type Pt } from '../diagram/geometry'
 import { isAlive } from '../projections'
 import { haloStyle, leanTone } from '../read'
+import { useT } from '../i18n'
 import { currentReadValue, currentRoleIds } from '../store'
 import { resolveTeamColor } from '../tone'
 import type { GameConfig, PlayerId, ScriptConfig, Session, Tone } from '../types'
@@ -51,6 +52,7 @@ export function SeatCircle({
   onBackgroundTap,
   hiddenRelations,
 }: Props) {
+  const { t } = useT()
   const n = session.players.length
   // Token size is fixed by the table size (so neighbours never touch at spread 1);
   // spreading the ring past that only opens up the gaps, it doesn't grow the tokens.
@@ -212,12 +214,12 @@ export function SeatCircle({
             onClick={() => setSpreadKeepView(SPREAD_MIN)}
             className="rounded-lg border border-line bg-surface/90 px-2 py-1 text-xs text-muted backdrop-blur active:bg-raised"
           >
-            Fit
+            {t('diagram.fit')}
           </button>
         )}
         <button
           onClick={() => zoomBy(1 / 1.4)}
-          aria-label="Tighten spacing"
+          aria-label={t('diagram.tighten')}
           disabled={spread <= SPREAD_MIN + 1e-3}
           className="h-7 w-7 rounded-lg border border-line bg-surface/90 text-base leading-none text-muted backdrop-blur active:bg-raised disabled:opacity-30"
         >
@@ -225,7 +227,7 @@ export function SeatCircle({
         </button>
         <button
           onClick={() => zoomBy(1.4)}
-          aria-label="Spread out"
+          aria-label={t('diagram.spread')}
           disabled={spread >= SPREAD_MAX - 1e-3}
           className="h-7 w-7 rounded-lg border border-line bg-surface/90 text-base leading-none text-muted backdrop-blur active:bg-raised disabled:opacity-30"
         >
@@ -248,7 +250,7 @@ export function SeatCircle({
           viewBox={`${-PAD_X} 0 ${vbW} ${vbH}`}
           style={{ width: `${widthPct}%`, aspectRatio: `${vbW} / ${vbH}`, display: 'block' }}
           role="img"
-          aria-label="Player relationship diagram"
+          aria-label={t('diagram.aria')}
         >
           {/* Background catches taps to clear focus. */}
           <rect x={-PAD_X} y={0} width={vbW} height={vbH} fill="transparent" onClick={handleBackgroundTap} />

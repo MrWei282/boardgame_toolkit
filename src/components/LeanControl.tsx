@@ -1,3 +1,4 @@
+import { useT } from '../i18n'
 import { LEAN_STEPS } from '../read'
 
 type Props = {
@@ -37,14 +38,16 @@ function idleClass(lean: number): string {
  * Tapping the already-active segment clears the read (back to no read).
  */
 export function LeanControl({ value, onChange }: Props) {
+  const { t } = useT()
   return (
-    <div className="flex overflow-hidden rounded-lg border border-line" role="group" aria-label="My read">
+    <div className="flex overflow-hidden rounded-lg border border-line" role="group" aria-label={t('diagram.myRead')}>
       {LEAN_STEPS.map((step, i) => {
         const active = value === step.lean
+        const label = t(`lean.${step.lean}`)
         return (
           <button
             key={step.lean}
-            aria-label={step.label}
+            aria-label={label}
             aria-pressed={active}
             onClick={() => onChange(active ? null : step.lean)}
             className={[
@@ -53,7 +56,7 @@ export function LeanControl({ value, onChange }: Props) {
               active ? activeClass(step.lean) : idleClass(step.lean),
             ].join(' ')}
           >
-            {step.label}
+            {label}
           </button>
         )
       })}

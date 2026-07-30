@@ -8,6 +8,7 @@ import {
   scriptsForGame,
   type ImportResult,
 } from '../config'
+import { useT } from '../i18n'
 import { useStore } from '../store'
 import { Sheet } from './Sheet'
 
@@ -26,6 +27,7 @@ function defaultCount(min: number, max: number): number {
 
 export function SessionSetup({ onCancel }: { onCancel: () => void }) {
   const createSession = useStore((s) => s.createSession)
+  const { t } = useT()
 
   // Bumped after an import/restore so the picker re-reads the (mutated) registries.
   // Managing/deleting configs lives in Settings now; this sheet only imports.
@@ -87,28 +89,28 @@ export function SessionSetup({ onCancel }: { onCancel: () => void }) {
     return (
       <div className="mx-auto flex min-h-dvh max-w-md flex-col px-4 pt-6 pb-[max(1rem,env(safe-area-inset-bottom))]">
         <div className="flex items-center justify-between">
-          <h1 className="text-xl font-semibold">New session</h1>
+          <h1 className="text-xl font-semibold">{t('setup.title')}</h1>
           <button
             onClick={onCancel}
             className="rounded-lg border border-line bg-raised px-3 py-1.5 text-xs text-muted active:bg-line"
           >
-            Cancel
+            {t('common.cancel')}
           </button>
         </div>
         <div className="mt-16 rounded-xl border border-dashed border-line px-4 py-10 text-center">
-          <p className="text-sm text-muted">No games available — import one, or bring back the defaults.</p>
+          <p className="text-sm text-muted">{t('setup.noGames')}</p>
           <div className="mt-4 flex flex-col gap-2">
             <button
               onClick={restoreDefaults}
               className="w-full rounded-xl bg-info py-3 font-semibold text-bg active:opacity-80"
             >
-              Restore default games
+              {t('common.restoreDefaults')}
             </button>
             <button
               onClick={() => setImporting(true)}
               className="w-full rounded-xl border border-line bg-raised py-3 text-sm active:bg-line"
             >
-              Import a game
+              {t('setup.importTitle')}
             </button>
           </div>
         </div>
@@ -123,23 +125,23 @@ export function SessionSetup({ onCancel }: { onCancel: () => void }) {
       className="mx-auto flex min-h-dvh max-w-md flex-col px-4 pt-6 pb-[max(1rem,env(safe-area-inset-bottom))]"
     >
       <div className="flex items-center justify-between">
-        <h1 className="text-xl font-semibold">New session</h1>
+        <h1 className="text-xl font-semibold">{t('setup.title')}</h1>
         <button
           onClick={onCancel}
           className="rounded-lg border border-line bg-raised px-3 py-1.5 text-xs text-muted active:bg-line"
         >
-          Cancel
+          {t('common.cancel')}
         </button>
       </div>
 
       <div className="mt-5">
         <div className="mb-2 flex items-center justify-between">
-          <label className="text-sm font-medium">Game</label>
+          <label className="text-sm font-medium">{t('setup.game')}</label>
           <button
             onClick={() => setImporting(true)}
             className="text-xs text-info underline decoration-dotted active:text-ink"
           >
-            ＋ Import a game
+            {t('setup.importGame')}
           </button>
         </div>
         <div className="flex flex-wrap gap-2">
@@ -153,12 +155,10 @@ export function SessionSetup({ onCancel }: { onCancel: () => void }) {
 
       {/* Script — the role list layered on the game. */}
       <div className="mt-4">
-        <label className="text-sm font-medium">Script</label>
+        <label className="text-sm font-medium">{t('setup.script')}</label>
         <div className="mt-2 flex flex-wrap gap-2">
           {scripts.length === 0 ? (
-            <p className="text-xs text-muted">
-              This game has no script yet — import one that extends “{game.name}”.
-            </p>
+            <p className="text-xs text-muted">{t('setup.noScript', { game: game.name })}</p>
           ) : (
             scripts.map((s) => (
               <Chip key={s.id} selected={s.id === scriptId} onClick={() => setScriptId(s.id)}>
@@ -171,7 +171,7 @@ export function SessionSetup({ onCancel }: { onCancel: () => void }) {
 
       <div className="mt-6">
         <div className="mb-2 flex items-baseline justify-between">
-          <label className="text-sm font-medium">Players</label>
+          <label className="text-sm font-medium">{t('setup.players')}</label>
           <span className="text-sm text-muted">
             {game.minPlayers}–{game.maxPlayers}
           </span>
@@ -196,10 +196,8 @@ export function SessionSetup({ onCancel }: { onCancel: () => void }) {
       </div>
 
       <div className="mt-6 flex-1">
-        <label className="text-sm font-medium">Seats</label>
-        <p className="mt-0.5 mb-2 text-xs text-muted">
-          In physical seating order — adjacency matters in play. Blank names become P1, P2, …
-        </p>
+        <label className="text-sm font-medium">{t('setup.seats')}</label>
+        <p className="mt-0.5 mb-2 text-xs text-muted">{t('setup.seatsHint')}</p>
         <div className="space-y-2">
           {Array.from({ length: count }, (_, i) => (
             <div key={i} className="flex items-center gap-2">
@@ -222,7 +220,7 @@ export function SessionSetup({ onCancel }: { onCancel: () => void }) {
         disabled={!canStart}
         className="sticky bottom-4 mt-6 w-full rounded-xl bg-info py-3.5 font-semibold text-bg active:opacity-80 disabled:opacity-30"
       >
-        Start session
+        {t('setup.start')}
       </button>
 
       <ImportSheet open={importing} onClose={() => setImporting(false)} onImported={afterImport} />
@@ -239,6 +237,7 @@ function ImportSheet({
   onClose: () => void
   onImported: (gameId: string) => void
 }) {
+  const { t } = useT()
   const [text, setText] = useState('')
   const [result, setResult] = useState<ImportResult | null>(null)
 
@@ -252,13 +251,9 @@ function ImportSheet({
   }
 
   return (
-    <Sheet open={open} onClose={onClose} title="Import a game">
+    <Sheet open={open} onClose={onClose} title={t('setup.importTitle')}>
       <div className="space-y-3">
-        <p className="text-xs text-muted">
-          Paste a game (with <code>phases</code>), a script (with <code>roles</code>), or a{' '}
-          <code>{'{ game, script }'}</code> bundle. It’s validated before it’s added — nothing is
-          saved if anything is wrong. Manage or delete installed games in Settings.
-        </p>
+        <p className="text-xs text-muted">{t('setup.importHint')}</p>
         <textarea
           value={text}
           onChange={(e) => setText(e.target.value)}
@@ -276,7 +271,8 @@ function ImportSheet({
         )}
         {result && result.ok && (
           <p className="rounded-xl border border-good/40 bg-good/10 px-3 py-2 text-xs text-good">
-            Imported {result.imported.join(' and ')}.
+            {t('setup.importedPrefix')}
+            {result.imported.join(t('common.and'))}.
           </p>
         )}
 
@@ -285,7 +281,7 @@ function ImportSheet({
           disabled={text.trim().length === 0}
           className="w-full rounded-xl bg-info py-3 font-semibold text-bg active:opacity-80 disabled:opacity-30"
         >
-          Validate &amp; import
+          {t('setup.validateImport')}
         </button>
       </div>
     </Sheet>

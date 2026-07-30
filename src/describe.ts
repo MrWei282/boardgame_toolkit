@@ -1,4 +1,5 @@
 import { getRelation, getRole } from './config'
+import { relationPhrase } from './i18n'
 import type { Assertion, GameConfig, ScriptConfig, Session, Tone } from './types'
 
 export type AssertionParts = {
@@ -30,7 +31,7 @@ export function assertionParts(
 
   return {
     speaker: nameOf(assertion.speaker),
-    phrase: useSelf ? relation.selfPhrase! : relation.phrase,
+    phrase: relationPhrase(relation, useSelf),
     tone: relation.tone,
     targetText: useSelf ? '' : assertion.targets.map(nameOf).join(' & '),
     roleText: (assertion.roles ?? []).map((id) => getRole(script, id)?.name ?? id).join(' / '),

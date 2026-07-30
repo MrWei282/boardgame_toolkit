@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import { assertionParts } from '../describe'
+import { useT } from '../i18n'
 import { FIRST_RANK, phaseFromRank, phaseLabel, rankOf } from '../projections'
 import { useStore } from '../store'
 import type { Assertion, GameConfig, GameEvent, ScriptConfig, Session } from '../types'
@@ -25,6 +26,7 @@ export function LogView({ session, game, script, highlightRank, onEditAssertion,
   const updateEvent = useStore((s) => s.updateEvent)
   const deleteAssertion = useStore((s) => s.deleteAssertion)
   const deleteEvent = useStore((s) => s.deleteEvent)
+  const { t } = useT()
 
   const [expanded, setExpanded] = useState<Set<string>>(new Set())
 
@@ -60,7 +62,7 @@ export function LogView({ session, game, script, highlightRank, onEditAssertion,
   if (items.length === 0) {
     return (
       <p className="rounded-xl border border-dashed border-line px-4 py-8 text-center text-sm text-muted">
-        Nothing logged yet.
+        {t('log.empty')}
       </p>
     )
   }
@@ -125,7 +127,7 @@ export function LogView({ session, game, script, highlightRank, onEditAssertion,
           <EntryActions
             pinned={item.pinned}
             hidden={struck}
-            deleteMessage={item.kind === 'assertion' ? 'Delete this entry?' : 'Delete this event?'}
+            deleteMessage={item.kind === 'assertion' ? t('entry.deleteEntry') : t('entry.deleteEvent')}
             onEdit={() =>
               item.kind === 'assertion' ? onEditAssertion(item.data) : onEditEvent(item.data)
             }
@@ -192,6 +194,7 @@ function AssertionRow({
   onToggleExpand: () => void
   nameOf: (id: string) => string
 }) {
+  const { t } = useT()
   const parts = assertionParts(assertion, session, game, script)
   const voteCount = votes?.length ?? 0
 
@@ -201,13 +204,13 @@ function AssertionRow({
       <AssertionText parts={parts} />
       {voteCount > 0 && (
         <button onClick={onToggleExpand} className="ml-1 text-xs text-info underline decoration-dotted">
-          · {voteCount} vote{voteCount === 1 ? '' : 's'}
+          · {t('log.votes', { n: voteCount })}
         </button>
       )}
       {parts.note && <span className="mt-0.5 block text-xs text-muted">“{parts.note}”</span>}
       {expanded && voteCount > 0 && (
         <span className="mt-0.5 block text-xs text-muted">
-          Voted: {votes!.map((v) => nameOf(v.speaker)).join(', ')}
+          {t('log.voted', { names: votes!.map((v) => nameOf(v.speaker)).join('、') })}
         </span>
       )}
     </p>
@@ -223,6 +226,7 @@ function EventRow({
   pinned: boolean
   nameOf: (id: string) => string
 }) {
+  const { t } = useT()
   const who = event.subjects.map(nameOf).join(' & ')
   const lifeTone =
     event.setsAlive === false ? 'text-evil' : event.setsAlive === true ? 'text-good' : 'text-muted'
@@ -232,10 +236,10 @@ function EventRow({
       {pinned && <span className="mr-1 text-neutral">★</span>}
       {/* An event reads differently from a claim — mark it so the two don't blur. */}
       <span className={`mr-1 ${lifeTone}`}>◆</span>
-      <span className="font-medium">{event.label || 'Event'}</span>
+      <span className="font-medium">{event.label || t('log.event')}</span>
       {who && <span className="text-muted"> — {who}</span>}
-      {event.setsAlive === false && <span className="text-evil"> · died</span>}
-      {event.setsAlive === true && <span className="text-good"> · revived</span>}
+      {event.setsAlive === false && <span className="text-evil"> · {t('event.died')}</span>}
+      {event.setsAlive === true && <span className="text-good"> · {t('event.revived')}</span>}
       {event.note && <span className="mt-0.5 block text-xs text-muted">“{event.note}”</span>}
     </p>
   )

@@ -1,4 +1,5 @@
 import { useEffect, useState, type ReactNode } from 'react'
+import { relationLabel, useT } from '../i18n'
 import { isAlive } from '../projections'
 import { useStore } from '../store'
 import { toneSolid } from '../tone'
@@ -25,6 +26,7 @@ type Props = {
 export function AssertionSheet({ open, onClose, session, game, script, at, editing, presetSpeaker, presetRelation }: Props) {
   const addAssertion = useStore((s) => s.addAssertion)
   const updateAssertion = useStore((s) => s.updateAssertion)
+  const { t } = useT()
 
   const [speaker, setSpeaker] = useState<PlayerId | null>(null)
   const [relationId, setRelationId] = useState<string | null>(null)
@@ -91,20 +93,20 @@ export function AssertionSheet({ open, onClose, session, game, script, at, editi
     <Sheet
       open={open}
       onClose={close}
-      title={editing ? 'Edit entry' : 'Log what was said'}
+      title={editing ? t('sheet.editEntry') : t('sheet.logSpeech')}
       footer={
         <button
           onClick={save}
           disabled={!canSave}
           className="w-full rounded-xl bg-info py-3 font-semibold text-bg active:opacity-80 disabled:opacity-30"
         >
-          Save
+          {t('sheet.save')}
         </button>
       }
     >
       <div className="space-y-5">
         <section>
-          <SectionLabel n={1}>Who spoke</SectionLabel>
+          <SectionLabel n={1}>{t('sheet.whoSpoke')}</SectionLabel>
           <SeatGrid
             players={session.players}
             selected={speaker ? [speaker] : []}
@@ -114,7 +116,7 @@ export function AssertionSheet({ open, onClose, session, game, script, at, editi
         </section>
 
         <section>
-          <SectionLabel n={2}>What they did</SectionLabel>
+          <SectionLabel n={2}>{t('sheet.whatDid')}</SectionLabel>
           <div className="flex flex-wrap gap-2">
             {game.relations
               // Internal relations (votes) and the nomination itself have their own
@@ -131,7 +133,7 @@ export function AssertionSheet({ open, onClose, session, game, script, at, editi
                     : 'border-line bg-raised text-muted active:bg-line',
                 ].join(' ')}
               >
-                {r.label}
+                {relationLabel(r)}
               </button>
             ))}
           </div>
@@ -140,7 +142,7 @@ export function AssertionSheet({ open, onClose, session, game, script, at, editi
         {relation && (
           <section>
             <SectionLabel n={3}>
-              {relation.targets === 'one' ? 'About whom' : 'About whom (any number)'}
+              {relation.targets === 'one' ? t('sheet.aboutWhom') : t('sheet.aboutWhomAny')}
             </SectionLabel>
             <SeatGrid
               players={session.players}
@@ -149,16 +151,14 @@ export function AssertionSheet({ open, onClose, session, game, script, at, editi
               deadIds={deadIds}
             />
             {relation.id === 'info' && (
-              <p className="mt-2 text-xs text-muted">
-                A player claiming their own role is themself as both speaker and target.
-              </p>
+              <p className="mt-2 text-xs text-muted">{t('sheet.infoSelfHint')}</p>
             )}
           </section>
         )}
 
         {relation && relation.roles !== 'none' && (
           <section>
-            <SectionLabel n={4}>Roles named (optional)</SectionLabel>
+            <SectionLabel n={4}>{t('sheet.rolesNamed')}</SectionLabel>
             <RolePicker
               game={game}
               script={script}
@@ -172,11 +172,11 @@ export function AssertionSheet({ open, onClose, session, game, script, at, editi
 
         {relation && (
           <section>
-            <SectionLabel>Note (optional)</SectionLabel>
+            <SectionLabel>{t('sheet.note')}</SectionLabel>
             <input
               value={note}
               onChange={(e) => setNote(e.target.value)}
-              placeholder="Exact words, numbers, anything odd"
+              placeholder={t('sheet.notePlaceholder')}
               autoComplete="off"
               className="w-full rounded-xl border border-line bg-raised px-3 py-2.5 placeholder:text-muted/60 focus:border-info focus:outline-none"
             />

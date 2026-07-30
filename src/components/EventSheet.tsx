@@ -1,4 +1,5 @@
 import { useEffect, useState, type ReactNode } from 'react'
+import { useT } from '../i18n'
 import { isAlive } from '../projections'
 import { useStore } from '../store'
 import type { GameConfig, GameEvent, Phase, PlayerId, Session } from '../types'
@@ -38,6 +39,7 @@ function effectOf(setsAlive: boolean | undefined): LifeEffect {
 export function EventSheet({ open, onClose, session, game, presetSubject, lifeEdit, at, editing }: Props) {
   const addEvent = useStore((s) => s.addEvent)
   const updateEvent = useStore((s) => s.updateEvent)
+  const { t } = useT()
 
   const [label, setLabel] = useState('')
   const [subjects, setSubjects] = useState<PlayerId[]>([])
@@ -91,57 +93,55 @@ export function EventSheet({ open, onClose, session, game, presetSubject, lifeEd
     <Sheet
       open={open}
       onClose={onClose}
-      title={editing ? 'Edit event' : 'Log what happened'}
+      title={editing ? t('sheet.editEvent') : t('sheet.logEvent')}
       footer={
         <button
           onClick={save}
           className="w-full rounded-xl bg-info py-3 font-semibold text-bg active:opacity-80"
         >
-          Save
+          {t('sheet.save')}
         </button>
       }
     >
       <div className="space-y-5">
         <section>
-          <Label>What happened</Label>
+          <Label>{t('sheet.whatHappened')}</Label>
           <input
             value={label}
             onChange={(e) => setLabel(e.target.value)}
-            placeholder="e.g. Executed, Died at night, Slayer shot, Quest failed"
+            placeholder={t('sheet.eventPlaceholder')}
             autoComplete="off"
             className="w-full rounded-xl border border-line bg-raised px-3 py-2.5 placeholder:text-muted/60 focus:border-info focus:outline-none"
           />
         </section>
 
         <section>
-          <Label>Who it involves</Label>
+          <Label>{t('sheet.whoTouched')}</Label>
           <SeatGrid players={session.players} selected={subjects} onSelect={toggleSubject} deadIds={deadIds} />
         </section>
 
         <section>
-          <Label>Effect on life</Label>
+          <Label>{t('sheet.lifeEffect')}</Label>
           <div className="flex gap-2">
             <EffectButton active={effect === 'none'} onClick={() => setEffect('none')} tone="line">
-              No change
+              {t('sheet.lifeNone')}
             </EffectButton>
             <EffectButton active={effect === 'died'} onClick={() => setEffect('died')} tone="evil">
-              Died
+              {t('sheet.lifeDies')}
             </EffectButton>
             <EffectButton active={effect === 'revived'} onClick={() => setEffect('revived')} tone="good">
-              Revived
+              {t('sheet.lifeRevives')}
             </EffectButton>
           </div>
-          <p className="mt-1.5 text-[11px] text-muted">
-            Applies to everyone selected above. Alive/dead is worked out from these.
-          </p>
+          <p className="mt-1.5 text-[11px] text-muted">{t('sheet.lifeHint')}</p>
         </section>
 
         <section>
-          <Label>Note (optional)</Label>
+          <Label>{t('sheet.note')}</Label>
           <input
             value={note}
             onChange={(e) => setNote(e.target.value)}
-            placeholder="Anything worth remembering"
+            placeholder={t('sheet.noteAnything')}
             autoComplete="off"
             className="w-full rounded-xl border border-line bg-raised px-3 py-2.5 placeholder:text-muted/60 focus:border-info focus:outline-none"
           />

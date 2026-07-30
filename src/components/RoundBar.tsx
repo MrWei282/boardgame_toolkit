@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { useT } from '../i18n'
 import { phaseLabel } from '../projections'
 import { useStore } from '../store'
 import type { GameConfig, Phase } from '../types'
@@ -24,6 +25,7 @@ type Props = {
 export function RoundBar({ game, round, phase, alive, total, reviewing, ended }: Props) {
   const closeSession = useStore((s) => s.closeSession)
   const endSession = useStore((s) => s.endSession)
+  const { t } = useT()
   const [menu, setMenu] = useState(false)
 
   return (
@@ -34,29 +36,27 @@ export function RoundBar({ game, round, phase, alive, total, reviewing, ended }:
             {phaseLabel(game, round, phase)}
             {reviewing && (
               <span className="rounded bg-info/15 px-1.5 py-0.5 text-[10px] font-medium text-info">
-                reviewing
+                {t('round.reviewing')}
               </span>
             )}
             {ended && (
               <span className="rounded bg-neutral/15 px-1.5 py-0.5 text-[10px] font-medium text-neutral">
-                finished
+                {t('round.finished')}
               </span>
             )}
           </div>
-          <div className="text-[11px] text-muted">
-            {alive} of {total} alive
-          </div>
+          <div className="text-[11px] text-muted">{t('round.alive', { alive, total })}</div>
         </div>
 
         <button
           onClick={() => setMenu(true)}
           className="h-10 shrink-0 rounded-lg border border-line bg-raised px-3 text-xs text-muted active:bg-line"
         >
-          Menu
+          {t('round.menu')}
         </button>
       </div>
 
-      <Sheet open={menu} onClose={() => setMenu(false)} title="Game">
+      <Sheet open={menu} onClose={() => setMenu(false)} title={t('round.game')}>
         <div className="space-y-1.5">
           <button
             onClick={() => {
@@ -65,8 +65,8 @@ export function RoundBar({ game, round, phase, alive, total, reviewing, ended }:
             }}
             className="w-full rounded-xl border border-line px-3 py-3 text-left text-sm text-ink active:bg-raised"
           >
-            Leave — keep playing
-            <span className="mt-0.5 block text-xs text-muted">Back to your games; this one stays open.</span>
+            {t('round.leave')}
+            <span className="mt-0.5 block text-xs text-muted">{t('round.leaveSub')}</span>
           </button>
           {!ended && (
             <button
@@ -76,8 +76,8 @@ export function RoundBar({ game, round, phase, alive, total, reviewing, ended }:
               }}
               className="w-full rounded-xl border border-line px-3 py-3 text-left text-sm text-ink active:bg-raised"
             >
-              End game
-              <span className="mt-0.5 block text-xs text-muted">Mark it finished. You can reopen it later.</span>
+              {t('round.end')}
+              <span className="mt-0.5 block text-xs text-muted">{t('round.endSub')}</span>
             </button>
           )}
         </div>

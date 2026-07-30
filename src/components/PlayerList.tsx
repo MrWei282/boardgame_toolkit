@@ -1,4 +1,5 @@
 import { getRole, getTeam } from '../config'
+import { useT } from '../i18n'
 import { isAlive } from '../projections'
 import { currentReadValue, currentRoleIds, useStore } from '../store'
 import { teamChipStyle } from '../tone'
@@ -18,6 +19,7 @@ type Props = {
 
 export function PlayerList({ session, game, script, onTagPlayer, onEditLife, at }: Props) {
   const setRead = useStore((s) => s.setRead)
+  const { t } = useT()
   return (
     <ul className="space-y-1.5">
       {session.players.map((player) => {
@@ -64,25 +66,29 @@ export function PlayerList({ session, game, script, onTagPlayer, onEditLife, at 
                     )}
                   </span>
                 ) : (
-                  <span className="mt-0.5 block text-[11px] text-muted/70">no guess</span>
+                  <span className="mt-0.5 block text-[11px] text-muted/70">{t('diagram.noGuess')}</span>
                 )}
               </span>
             </button>
 
             <button
               onClick={() => onEditLife(player.id)}
-              aria-label={alive ? `Record death for ${player.name}` : `Record revival for ${player.name}`}
+              aria-label={
+                alive
+                  ? t('players.recordDeath', { name: player.name })
+                  : t('players.recordRevival', { name: player.name })
+              }
               className={[
                 'flex w-14 shrink-0 flex-col items-center justify-center gap-0.5 border-l border-line text-xs',
                 alive ? 'text-muted active:bg-raised' : 'bg-evil/15 text-evil',
               ].join(' ')}
             >
               {alive ? (
-                'alive'
+                t('players.alive')
               ) : (
                 <>
                   <span className="text-base leading-none">💀</span>
-                  <span>dead</span>
+                  <span>{t('players.dead')}</span>
                 </>
               )}
             </button>
@@ -90,7 +96,7 @@ export function PlayerList({ session, game, script, onTagPlayer, onEditLife, at 
 
           {/* My alignment read — inline so a hunch is one tap, no sheet. */}
           <div className="flex items-center gap-2 border-t border-line px-3 py-2">
-            <span className="shrink-0 text-[11px] text-muted">read</span>
+            <span className="shrink-0 text-[11px] text-muted">{t('players.read')}</span>
             <div className="flex-1">
               <LeanControl
                 value={currentReadValue(session, player.id)}

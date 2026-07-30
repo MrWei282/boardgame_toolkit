@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react'
+import { useT } from '../i18n'
 import { currentRoleIds, useStore } from '../store'
 import type { GameConfig, Phase, PlayerId, RoleId, ScriptConfig, Session } from '../types'
 import { RolePicker } from './RolePicker'
@@ -20,6 +21,7 @@ type Props = {
  */
 export function RoleTagSheet({ playerId, onClose, session, game, script, at }: Props) {
   const setRoleTag = useStore((s) => s.setRoleTag)
+  const { t } = useT()
   const player = session.players.find((p) => p.id === playerId) ?? null
 
   const [selected, setSelected] = useState<RoleId[]>([])
@@ -40,29 +42,25 @@ export function RoleTagSheet({ playerId, onClose, session, game, script, at }: P
     <Sheet
       open={Boolean(player)}
       onClose={onClose}
-      title={player ? `Guess — ${player.name}` : ''}
+      title={player ? t('sheet.guessTitle', { name: player.name }) : ''}
       footer={
         <div className="flex gap-2">
           <button
             onClick={() => setSelected([])}
             className="rounded-xl border border-line bg-raised px-4 py-3 text-sm text-muted active:bg-line"
           >
-            Clear
+            {t('sheet.clear')}
           </button>
           <button
             onClick={save}
             className="flex-1 rounded-xl bg-info py-3 font-semibold text-bg active:opacity-80"
           >
-            Save
+            {t('sheet.save')}
           </button>
         </div>
       }
     >
-      <p className="mb-3 text-xs text-muted">
-        Pick every role still in play for them. This is your <em>guess</em> — what
-        they <em>claimed</em> out loud belongs in the log instead. Your good/evil
-        read lives on the diagram.
-      </p>
+      <p className="mb-3 text-xs text-muted">{t('sheet.guessHint')}</p>
       <RolePicker
         game={game}
         script={script}

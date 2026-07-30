@@ -1,3 +1,4 @@
+import { useT } from '../i18n'
 import { FIRST_RANK, phaseFromRank, shortPhaseLabel } from '../projections'
 import type { GameConfig } from '../types'
 
@@ -23,6 +24,7 @@ type Props = {
  * moves forward, and stepping back is offered only to undo an empty advance.
  */
 export function Timeline({ game, currentRank, viewRank, onSelect, onAdvance, onRetract, canRetract }: Props) {
+  const { t } = useT()
   const ranks: number[] = []
   for (let r = FIRST_RANK; r <= currentRank; r++) ranks.push(r)
 
@@ -56,7 +58,7 @@ export function Timeline({ game, currentRank, viewRank, onSelect, onAdvance, onR
         <button
           onClick={onAdvance}
           className="min-w-9 shrink-0 rounded-lg border border-dashed border-line bg-surface px-2 py-1.5 text-xs font-medium text-muted active:bg-raised"
-          aria-label="Advance to next phase"
+          aria-label={t('timeline.advance')}
         >
           ＋
         </button>
@@ -67,7 +69,7 @@ export function Timeline({ game, currentRank, viewRank, onSelect, onAdvance, onR
           onClick={() => onSelect(currentRank)}
           className="mt-1 w-full rounded-lg border border-info/40 bg-info/10 py-1.5 text-xs text-info active:bg-info/20"
         >
-          Reviewing the past · new entries record into this phase · tap to return to live
+          {t('timeline.reviewingBanner')}
         </button>
       ) : (
         canRetract && (
@@ -75,7 +77,7 @@ export function Timeline({ game, currentRank, viewRank, onSelect, onAdvance, onR
             onClick={onRetract}
             className="mt-1 text-[11px] text-muted underline decoration-dotted active:text-ink"
           >
-            Undo last phase
+            {t('timeline.undo')}
           </button>
         )
       )}

@@ -1,5 +1,6 @@
 import { useEffect, useState, type ReactNode } from 'react'
 import { getGame, getScript } from '../config'
+import { useT } from '../i18n'
 import { aliveCount, FIRST_RANK, phaseFromRank, projectSession, rankOf } from '../projections'
 import { useStore } from '../store'
 import type { Assertion, GameEvent, PlayerId, Session } from '../types'
@@ -19,6 +20,7 @@ type Tab = 'diagram' | 'players' | 'log' | 'review'
 export function GameScreen({ session }: { session: Session }) {
   const game = getGame(session.gameId)
   const script = getScript(session.scriptId)
+  const { t } = useT()
 
   const nextPhase = useStore((s) => s.nextPhase)
   const prevPhase = useStore((s) => s.prevPhase)
@@ -95,17 +97,17 @@ export function GameScreen({ session }: { session: Session }) {
       <div className="mx-auto max-w-md px-3">
         <div className={`mt-3 grid ${ended ? 'grid-cols-4' : 'grid-cols-3'} gap-1 rounded-xl border border-line bg-surface p-1`}>
           <TabButton active={tab === 'diagram'} onClick={() => setTab('diagram')}>
-            Diagram
+            {t('tab.diagram')}
           </TabButton>
           <TabButton active={tab === 'players'} onClick={() => setTab('players')}>
-            Players
+            {t('tab.players')}
           </TabButton>
           <TabButton active={tab === 'log'} onClick={() => setTab('log')}>
-            Log{session.assertions.length + session.events.length > 0 && ` · ${session.assertions.length + session.events.length}`}
+            {t('tab.log')}{session.assertions.length + session.events.length > 0 && ` · ${session.assertions.length + session.events.length}`}
           </TabButton>
           {ended && (
             <TabButton active={tab === 'review'} onClick={() => setTab('review')}>
-              Review
+              {t('tab.review')}
             </TabButton>
           )}
         </div>
@@ -181,7 +183,7 @@ export function GameScreen({ session }: { session: Session }) {
               onClick={() => setSaid({ editing: null })}
               className="rounded-xl bg-info py-3 font-semibold text-bg active:opacity-80"
             >
-              + Speech
+              {t('bar.speech')}
             </button>
             <div className="flex gap-2">
               {nominationRelId && (
@@ -189,14 +191,14 @@ export function GameScreen({ session }: { session: Session }) {
                   onClick={() => setNominating({ editing: null })}
                   className="flex-1 rounded-xl border border-neutral/50 bg-neutral/10 py-2.5 font-semibold text-neutral active:bg-neutral/20"
                 >
-                  + Nomination
+                  {t('bar.nomination')}
                 </button>
               )}
               <button
                 onClick={() => openEventFor(null)}
                 className="flex-1 rounded-xl border border-line bg-raised py-2.5 font-semibold text-ink active:bg-line"
               >
-                + Event
+                {t('bar.event')}
               </button>
             </div>
           </div>

@@ -383,8 +383,18 @@ Ship one stage at a time; do not build a large prototype in one go.
      per-tone custom-colour picker (overrides layered on a preset, in `settings.ts`
      `customColors`, riding in the backup). Back-compat: `withDefaults` normalises legacy
      `team.tone`→`color`.
-   - *7.4* Localisation EN / 中文, **UI chrome only** (no config-content translation,
-     no config schema change); `language` joins the `settings.ts` store and the bundle.
+   - *7.4* **Done (live-play surfaces)** — localisation EN / 中文, **UI chrome only**.
+     `i18n.ts`: flat `en`/`zh` dicts + `useT()` (reactive `t`/`tOr`, `{param}` interp);
+     `language` in `settings.ts` (applied to `<html lang>`, rides in the bundle).
+     **Relations are the one hybrid**: the shipped default vocabulary translates by id
+     (`relationLabel`/`relationPhrase` via `tOr(\`relation.<id>.<slot>\`, authoredLabel)`),
+     while a game's own custom relations fall back to their authored label — config
+     content (game/role/team/phase names) is never translated. Translated: Home,
+     SessionSetup, Settings (+ Language section), GameScreen, RoundBar, Timeline,
+     DiagramView, SeatCircle controls, LeanControl, PlayerList, LogView, EntryActions,
+     and all four entry sheets. **Still English: the post-game Review tab
+     (`ReviewTab`/`Postmortem`/`TruthEntry`)** — a 7.4b follow-up. (Minor: English
+     plurals like "1 scripts" not handled — zh has no plural, kept simple.)
    - *7.5* **In-app config editor (create-only).** Duplicate/create a script (role list)
      or a game (name, player count, team names, phases) from the app — never edits an
      existing config in place (ids are referential; create-only sidesteps orphaning).

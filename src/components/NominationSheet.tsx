@@ -1,4 +1,5 @@
 import { useEffect, useState, type ReactNode } from 'react'
+import { useT } from '../i18n'
 import { isAlive } from '../projections'
 import { useStore } from '../store'
 import type { Assertion, GameConfig, Phase, PlayerId, Session } from '../types'
@@ -26,6 +27,7 @@ type Props = {
 export function NominationSheet({ open, onClose, session, game, at, editing, presetNominator }: Props) {
   const addNomination = useStore((s) => s.addNomination)
   const updateNomination = useStore((s) => s.updateNomination)
+  const { t } = useT()
 
   // The game's nomination relation and the relation its votes are recorded as —
   // config-driven, so this stays generic (BotC lynch, Avalon team proposal, …).
@@ -73,21 +75,21 @@ export function NominationSheet({ open, onClose, session, game, at, editing, pre
     <Sheet
       open={open}
       onClose={onClose}
-      title={editing ? 'Edit nomination' : 'Log a nomination'}
+      title={editing ? t('sheet.editNomination') : t('sheet.logNomination')}
       footer={
         <button
           onClick={save}
           disabled={!canSave}
           className="w-full rounded-xl bg-info py-3 font-semibold text-bg active:opacity-80 disabled:opacity-30"
         >
-          Save
+          {t('sheet.save')}
         </button>
       }
     >
       {nominationRel ? (
         <div className="space-y-5">
           <section>
-            <Label n={1}>Nominator</Label>
+            <Label n={1}>{t('sheet.nominator')}</Label>
             <SeatGrid
               players={session.players}
               selected={nominator ? [nominator] : []}
@@ -97,7 +99,7 @@ export function NominationSheet({ open, onClose, session, game, at, editing, pre
           </section>
 
           <section>
-            <Label n={2}>Nominee{nominees.length !== 1 ? 's' : ''}</Label>
+            <Label n={2}>{t('sheet.nominees')}</Label>
             <SeatGrid
               players={session.players}
               selected={nominees}
@@ -107,31 +109,29 @@ export function NominationSheet({ open, onClose, session, game, at, editing, pre
           </section>
 
           <section>
-            <Label>Who voted (optional)</Label>
+            <Label>{t('sheet.voters')}</Label>
             <SeatGrid
               players={session.players}
               selected={voters}
               onSelect={(id) => setVoters((prev) => toggleIn(prev, id))}
               deadIds={deadIds}
             />
-            <p className="mt-2 text-xs text-muted">
-              Votes roll up under the nomination instead of drawing their own arrows.
-            </p>
+            <p className="mt-2 text-xs text-muted">{t('sheet.votesHint')}</p>
           </section>
 
           <section>
-            <Label>Note (optional)</Label>
+            <Label>{t('sheet.note')}</Label>
             <input
               value={note}
               onChange={(e) => setNote(e.target.value)}
-              placeholder="Anything worth remembering"
+              placeholder={t('sheet.noteAnything')}
               autoComplete="off"
               className="w-full rounded-xl border border-line bg-raised px-3 py-2.5 placeholder:text-muted/60 focus:border-info focus:outline-none"
             />
           </section>
         </div>
       ) : (
-        <p className="text-sm text-muted">This game has no nomination relation configured.</p>
+        <p className="text-sm text-muted">{t('sheet.noNominationRel')}</p>
       )}
     </Sheet>
   )

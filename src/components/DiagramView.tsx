@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { createPortal } from 'react-dom'
 import { getRole, getTeam } from '../config'
 import { assertionParts } from '../describe'
+import { relationLabel, useT } from '../i18n'
 import { isAlive } from '../projections'
 import { currentReadValue, currentRoleIds, useStore } from '../store'
 import { teamChipStyle, toneChip, toneText } from '../tone'
@@ -44,6 +45,7 @@ export function DiagramView({
   const updateAssertion = useStore((s) => s.updateAssertion)
   const updateEvent = useStore((s) => s.updateEvent)
   const setRead = useStore((s) => s.setRead)
+  const { t } = useT()
 
   // Focus mode is the working view: tap a token to isolate it, tap empty space
   // to clear. A full 15-player arrow graph is unreadable on a phone.
@@ -106,14 +108,14 @@ export function DiagramView({
         <span className={['min-w-0 flex-1', struck ? 'opacity-45 line-through decoration-muted' : ''].join(' ')}>
           <span className={`mr-1 ${lifeTone}`}>◆</span>
           <span className="font-medium">{e.label || 'Event'}</span>
-          {e.setsAlive === false && <span className="text-evil"> · died</span>}
-          {e.setsAlive === true && <span className="text-good"> · revived</span>}
+          {e.setsAlive === false && <span className="text-evil"> · {t('event.died')}</span>}
+          {e.setsAlive === true && <span className="text-good"> · {t('event.revived')}</span>}
           {e.note && <span className="mt-0.5 block text-xs text-muted">“{e.note}”</span>}
         </span>
         <EntryActions
           pinned={!!e.pinned}
           hidden={struck}
-          deleteMessage="Delete this event?"
+          deleteMessage={t('entry.deleteEvent')}
           onEdit={() => onEditEvent(e)}
           onTogglePin={() => updateEvent(e.id, { pinned: !e.pinned })}
           onToggleStrike={() => updateEvent(e.id, { hidden: !e.hidden })}
@@ -159,13 +161,13 @@ export function DiagramView({
                   {focused.name}
                   {!isAlive(game, session, focused.id) && (
                     <span className="ml-2 rounded bg-evil/15 px-1.5 py-0.5 text-[11px] font-medium text-evil">
-                      💀 Dead
+                      💀 {t('diagram.dead')}
                     </span>
                   )}
                 </div>
                 <button
                   onClick={() => setFocusedId(null)}
-                  aria-label="Close"
+                  aria-label={t('common.close')}
                   className="rounded-lg border border-line bg-raised px-2.5 py-1 text-sm text-muted active:bg-line"
                 >
                   ✕
@@ -174,7 +176,7 @@ export function DiagramView({
 
               {/* Quick record — start an entry with this player already the speaker. */}
               <div className="mt-3">
-                <div className="mb-1.5 text-[11px] tracking-wide text-muted uppercase">Quick record</div>
+                <div className="mb-1.5 text-[11px] tracking-wide text-muted uppercase">{t('diagram.quickRecord')}</div>
                 <div className="flex flex-wrap gap-1.5">
                   {game.relations
                     .filter((r) => !r.internal && !r.collectsVotesAs)
@@ -187,7 +189,7 @@ export function DiagramView({
                         }}
                         className={['rounded-lg border px-3 py-1.5 text-sm font-medium', toneChip[r.tone]].join(' ')}
                       >
-                        {r.label}
+                        {relationLabel(r)}
                       </button>
                     ))}
                   {onQuickNominate && (
@@ -198,7 +200,7 @@ export function DiagramView({
                       }}
                       className={['rounded-lg border px-3 py-1.5 text-sm font-medium', toneChip.neutral].join(' ')}
                     >
-                      Nominate
+                      {t('diagram.nominate')}
                     </button>
                   )}
                   <button
@@ -208,18 +210,18 @@ export function DiagramView({
                     }}
                     className="rounded-lg border border-line bg-raised px-3 py-1.5 text-sm font-medium text-ink active:bg-line"
                   >
-                    Event
+                    {t('diagram.event')}
                   </button>
                 </div>
               </div>
 
               <div className="mt-3 flex items-center justify-between">
-                <span className="text-[11px] tracking-wide text-muted uppercase">Role guess</span>
+                <span className="text-[11px] tracking-wide text-muted uppercase">{t('diagram.roleGuess')}</span>
                 <button
                   onClick={() => onTagPlayer(focused.id)}
                   className="rounded-lg border border-line bg-raised px-3 py-1 text-xs active:bg-line"
                 >
-                  Edit guess
+                  {t('diagram.editGuess')}
                 </button>
               </div>
               <div className="mt-1.5">
@@ -243,12 +245,12 @@ export function DiagramView({
                     })}
                   </div>
                 ) : (
-                  <span className="text-xs text-muted/70">no guess</span>
+                  <span className="text-xs text-muted/70">{t('diagram.noGuess')}</span>
                 )}
               </div>
 
               <div className="mt-3 flex items-center gap-2">
-                <span className="shrink-0 text-[11px] text-muted">My read</span>
+                <span className="shrink-0 text-[11px] text-muted">{t('diagram.myRead')}</span>
                 <div className="flex-1">
                   <LeanControl
                     value={currentReadValue(session, focused.id)}
@@ -260,7 +262,7 @@ export function DiagramView({
               {involving.length > 0 ? (
                 <ul className="mt-3 space-y-1 border-t border-line pt-3">{involving.map((x) => x.node)}</ul>
               ) : (
-                <p className="mt-3 border-t border-line pt-3 text-xs text-muted">Nothing logged about them yet.</p>
+                <p className="mt-3 border-t border-line pt-3 text-xs text-muted">{t('diagram.nothingLogged')}</p>
               )}
             </div>
           </div>,
@@ -280,6 +282,7 @@ function RelationFilter({
   onToggle: (id: string) => void
 }) {
   const [open, setOpen] = useState(false)
+  const { t } = useT()
   const edgeRelations = game.relations.filter((r) => r.edge)
   const hiddenCount = edgeRelations.filter((r) => hidden.has(r.id)).length
 
@@ -287,7 +290,7 @@ function RelationFilter({
     <div className="relative mb-1 flex justify-end">
       <button
         onClick={() => setOpen((v) => !v)}
-        aria-label="Hide arrows"
+        aria-label={t('diagram.hide')}
         aria-expanded={open}
         className={[
           'flex items-center gap-1.5 rounded-lg border px-2.5 py-1 text-xs active:bg-raised',
@@ -297,7 +300,7 @@ function RelationFilter({
         <span aria-hidden className="text-sm leading-none">
           {hiddenCount > 0 ? '🚫' : '👁'}
         </span>
-        Hide
+        {t('diagram.hide')}
         {hiddenCount > 0 && <span className="tabular-nums">−{hiddenCount}</span>}
       </button>
 
@@ -306,7 +309,7 @@ function RelationFilter({
           {/* Tap-out layer. */}
           <div className="fixed inset-0 z-10" onClick={() => setOpen(false)} />
           <div className="absolute top-full right-0 z-20 mt-1 w-48 rounded-xl border border-line bg-surface p-1.5 shadow-xl">
-            <p className="px-2 pt-1 pb-0.5 text-[10px] tracking-wide text-muted uppercase">Show arrows</p>
+            <p className="px-2 pt-1 pb-0.5 text-[10px] tracking-wide text-muted uppercase">{t('diagram.showArrows')}</p>
             {edgeRelations.map((r) => {
               const off = hidden.has(r.id)
               return (
@@ -316,7 +319,7 @@ function RelationFilter({
                   className="flex w-full items-center gap-2 rounded-lg px-2 py-1.5 text-sm active:bg-raised"
                 >
                   <span className={`text-base leading-none ${off ? 'text-muted/40' : toneText[r.tone]}`}>→</span>
-                  <span className={off ? 'text-muted/50 line-through' : 'text-ink'}>{r.label}</span>
+                  <span className={off ? 'text-muted/50 line-through' : 'text-ink'}>{relationLabel(r)}</span>
                   <span className={`ml-auto text-xs ${off ? 'text-muted/40' : 'text-info'}`}>{off ? '' : '✓'}</span>
                 </button>
               )

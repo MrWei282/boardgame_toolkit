@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import { getGame, getScript } from '../config'
+import { useT, type TFn } from '../i18n'
 import { phaseLabel } from '../projections'
 import { buildSessionBundle, bundleFilename, downloadText, serializeBundle } from '../share'
 import { useSessions, useStore } from '../store'
@@ -14,14 +15,14 @@ type Props = {
 }
 
 /** Today / Yesterday / a short date, so the list reads as game-nights. */
-function dayLabel(ts: number): string {
+function dayLabel(ts: number, t: TFn): string {
   const d = new Date(ts)
   d.setHours(0, 0, 0, 0)
   const today = new Date()
   today.setHours(0, 0, 0, 0)
   const diffDays = Math.round((today.getTime() - d.getTime()) / 86_400_000)
-  if (diffDays === 0) return 'Today'
-  if (diffDays === 1) return 'Yesterday'
+  if (diffDays === 0) return t('home.today')
+  if (diffDays === 1) return t('home.yesterday')
   return d.toLocaleDateString(undefined, {
     day: 'numeric',
     month: 'short',
@@ -36,11 +37,12 @@ function timeLabel(ts: number): string {
 export function HomeScreen({ onNewGame, onOpenSettings }: Props) {
   const sessions = useSessions()
   const openSession = useStore((s) => s.openSession)
+  const { t } = useT()
 
   // Group consecutive sessions (already newest-first) by day into game-nights.
   const groups: { label: string; items: Session[] }[] = []
   for (const s of sessions) {
-    const label = dayLabel(s.createdAt)
+    const label = dayLabel(s.createdAt, t)
     const last = groups[groups.length - 1]
     if (last && last.label === label) last.items.push(s)
     else groups.push({ label, items: [s] })
@@ -49,11 +51,11 @@ export function HomeScreen({ onNewGame, onOpenSettings }: Props) {
   return (
     <div className="mx-auto min-h-dvh max-w-md px-4 pt-6 pb-[max(1rem,env(safe-area-inset-bottom))]">
       <div className="flex items-center justify-between">
-        <h1 className="text-xl font-semibold">Games</h1>
+        <h1 className="text-xl font-semibold">{t('home.title')}</h1>
         <div className="flex items-center gap-2">
           <button
             onClick={onOpenSettings}
-            aria-label="Settings"
+            aria-label={t('home.settings')}
             className="flex h-10 w-10 items-center justify-center rounded-xl border border-line bg-raised text-muted active:bg-line"
           >
             ⚙
@@ -62,14 +64,14 @@ export function HomeScreen({ onNewGame, onOpenSettings }: Props) {
             onClick={onNewGame}
             className="rounded-xl bg-info px-4 py-2.5 text-sm font-semibold text-bg active:opacity-80"
           >
-            + New game
+            {t('home.newGame')}
           </button>
         </div>
       </div>
 
       {sessions.length === 0 ? (
         <p className="mt-16 rounded-xl border border-dashed border-line px-4 py-10 text-center text-sm text-muted">
-          No games yet. Start one to begin tracking.
+          {t('home.empty')}
         </p>
       ) : (
         <div className="mt-5 space-y-5">
@@ -92,6 +94,7 @@ export function HomeScreen({ onNewGame, onOpenSettings }: Props) {
 function GameRow({ session, onOpen }: { session: Session; onOpen: () => void }) {
   const setEnded = useStore((s) => s.setEnded)
   const deleteSession = useStore((s) => s.deleteSession)
+  const { t } = useT()
   const [menu, setMenu] = useState(false)
   const [confirming, setConfirming] = useState(false)
 
@@ -109,11 +112,11 @@ function GameRow({ session, onOpen }: { session: Session; onOpen: () => void }) 
               ended ? 'bg-neutral/15 text-neutral' : 'bg-good/15 text-good',
             ].join(' ')}
           >
-            {ended ? 'finished' : 'ongoing'}
+            {ended ? t('home.finished') : t('home.ongoing')}
           </span>
         </div>
         <div className="mt-0.5 text-[11px] text-muted">
-          {session.players.length} players · {phaseLabel(getGame(session.gameId), session.round, session.phase)} · {timeLabel(session.createdAt)}
+          {t('home.players', { n: session.players.length })} · {phaseLabel(getGame(session.gameId), session.round, session.phase)} · {timeLabel(session.createdAt)}
         </div>
       </button>
 
@@ -134,7 +137,7 @@ function GameRow({ session, onOpen }: { session: Session; onOpen: () => void }) 
             }}
             className="w-full rounded-xl border border-line px-3 py-3 text-left text-sm text-ink active:bg-raised"
           >
-            Export…
+            {t('home.export')}
           </button>
           <button
             onClick={() => {
@@ -143,7 +146,7 @@ function GameRow({ session, onOpen }: { session: Session; onOpen: () => void }) 
             }}
             className="w-full rounded-xl border border-line px-3 py-3 text-left text-sm text-ink active:bg-raised"
           >
-            {ended ? 'Reopen as ongoing' : 'Mark finished'}
+            {ended ? t('home.reopen') : t('home.markFinished')}
           </button>
           <button
             onClick={() => {
@@ -152,7 +155,7 @@ function GameRow({ session, onOpen }: { session: Session; onOpen: () => void }) 
             }}
             className="w-full rounded-xl border border-evil/40 px-3 py-3 text-left text-sm text-evil active:bg-raised"
           >
-            Delete
+            {t('common.delete')}
           </button>
         </div>
       </Sheet>
@@ -166,13 +169,13 @@ function GameRow({ session, onOpen }: { session: Session; onOpen: () => void }) 
             className="w-full max-w-xs rounded-2xl border border-line bg-surface p-4"
             onClick={(e) => e.stopPropagation()}
           >
-            <p className="text-sm">Delete this game? This can't be undone.</p>
+            <p className="text-sm">{t('home.deleteConfirm')}</p>
             <div className="mt-4 flex gap-2">
               <button
                 onClick={() => setConfirming(false)}
                 className="flex-1 rounded-xl border border-line bg-raised py-2.5 text-sm active:bg-line"
               >
-                Cancel
+                {t('common.cancel')}
               </button>
               <button
                 onClick={() => {
@@ -181,7 +184,7 @@ function GameRow({ session, onOpen }: { session: Session; onOpen: () => void }) 
                 }}
                 className="flex-1 rounded-xl border border-evil/50 bg-evil/20 py-2.5 text-sm font-semibold text-evil active:bg-evil/30"
               >
-                Delete
+                {t('common.delete')}
               </button>
             </div>
           </div>
