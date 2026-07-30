@@ -287,7 +287,7 @@ export function Settings({ onClose }: { onClose: () => void }) {
                         setEditor({
                           kind: 'game',
                           initial: {
-                            name: g.name,
+                            name: `${g.name}_updated`,
                             minPlayers: g.minPlayers,
                             maxPlayers: g.maxPlayers,
                             teams: g.teams.map((tm) => ({ name: tm.name, alignment: tm.alignment, color: tm.color })),
@@ -300,7 +300,7 @@ export function Settings({ onClose }: { onClose: () => void }) {
                       }
                       className="shrink-0 rounded-lg border border-line px-2.5 py-1 text-xs text-muted active:bg-raised"
                     >
-                      {t('common.duplicate')}
+                      {t('common.edit')}
                     </button>
                     <button
                       onClick={() => downloadText(bundleFilename(g.name), serializeBundle(buildConfigBundle(g.id)))}
@@ -355,12 +355,12 @@ export function Settings({ onClose }: { onClose: () => void }) {
                               setEditor({
                                 kind: 'script',
                                 gameId: g.id,
-                                initial: { name: s.name, roles: s.roles.map((r) => ({ name: r.name, team: r.team })) },
+                                initial: { name: `${s.name}_updated`, roles: s.roles.map((r) => ({ name: r.name, team: r.team })) },
                               })
                             }
                             className="shrink-0 rounded-md border border-line px-2 py-0.5 text-[11px] text-muted active:bg-raised"
                           >
-                            {t('common.duplicate')}
+                            {t('common.edit')}
                           </button>
                           <button
                             onClick={() => {

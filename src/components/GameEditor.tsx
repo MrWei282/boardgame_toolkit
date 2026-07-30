@@ -1,7 +1,9 @@
 import { useState } from 'react'
 import { createGameConfig } from '../config'
 import { useT } from '../i18n'
-import type { Alignment } from '../types'
+import { useSettings } from '../settings'
+import { effectiveColor } from '../theme'
+import type { Alignment, Tone } from '../types'
 
 type Team = { name: string; alignment: Alignment; color: string }
 type Phase = { label: string; short: string }
@@ -20,17 +22,23 @@ type Props = {
 }
 
 const ALIGNMENTS: Alignment[] = ['good', 'neutral', 'evil']
-const ALIGN_HEX: Record<Alignment, string> = { good: '#3fb950', neutral: '#d29922', evil: '#f85149' }
+const isHex = (c: string) => c.startsWith('#')
 
 /** Create a new game (shape of play) — create-only, like ScriptEditor. Relations are
  *  omitted so the game inherits the default vocabulary (editing them lands in 7.6). */
 export function GameEditor({ initial, onCancel, onCreated }: Props) {
   const { t } = useT()
+  const palette = useSettings((s) => s.palette)
+  const customColors = useSettings((s) => s.customColors)
+  // A team colour is either a base-tone name (auto — tracks the alignment/palette) or a
+  // literal hex (custom — the user picked it, and it then stays across alignment changes).
+  const colorHex = (c: string) => (isHex(c) ? c : effectiveColor(palette, c as Tone, customColors))
+
   const [name, setName] = useState(initial?.name ?? '')
   const [minPlayers, setMin] = useState(initial?.minPlayers ?? 5)
   const [maxPlayers, setMax] = useState(initial?.maxPlayers ?? 10)
   const [teams, setTeams] = useState<Team[]>(
-    initial?.teams?.length ? initial.teams : [{ name: '', alignment: 'good', color: ALIGN_HEX.good }],
+    initial?.teams?.length ? initial.teams : [{ name: '', alignment: 'good', color: 'good' }],
   )
   const [setup, setSetup] = useState<Phase[]>(initial?.phases.setup ?? [])
   const [cycle, setCycle] = useState<Phase[]>(initial?.phases.cycle?.length ? initial.phases.cycle : [{ label: '', short: '' }])
@@ -82,7 +90,7 @@ export function GameEditor({ initial, onCancel, onCreated }: Props) {
               <div className="flex items-center gap-2">
                 <input
                   type="color"
-                  value={team.color.startsWith('#') ? team.color : ALIGN_HEX[team.alignment]}
+                  value={colorHex(team.color)}
                   onChange={(e) => setTeams((p) => p.map((x, j) => (j === i ? { ...x, color: e.target.value } : x)))}
                   aria-label={t('editor.teamName')}
                   className="h-8 w-8 shrink-0 cursor-pointer rounded border-0 bg-transparent p-0"
@@ -106,7 +114,11 @@ export function GameEditor({ initial, onCancel, onCreated }: Props) {
                 {ALIGNMENTS.map((a) => (
                   <button
                     key={a}
-                    onClick={() => setTeams((p) => p.map((x, j) => (j === i ? { ...x, alignment: a } : x)))}
+                    onClick={() =>
+                      setTeams((p) =>
+                        p.map((x, j) => (j === i ? { ...x, alignment: a, color: isHex(x.color) ? x.color : a } : x)),
+                      )
+                    }
                     aria-pressed={team.alignment === a}
                     className={[
                       'flex-1 rounded-lg border px-2 py-1 text-xs',
@@ -121,7 +133,7 @@ export function GameEditor({ initial, onCancel, onCreated }: Props) {
           ))}
         </ul>
         <button
-          onClick={() => setTeams((p) => [...p, { name: '', alignment: 'good', color: ALIGN_HEX.good }])}
+          onClick={() => setTeams((p) => [...p, { name: '', alignment: 'good', color: 'good' }])}
           className="mt-2 w-full rounded-xl border border-dashed border-line py-2 text-sm text-muted active:bg-raised"
         >
           {t('editor.addTeam')}

@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { createScriptConfig, getGame } from '../config'
 import { useT } from '../i18n'
+import { resolveTeamColor, teamChipStyle } from '../tone'
 
 type Role = { name: string; team: string }
 
@@ -91,19 +92,27 @@ export function ScriptEditor({ gameId, initial, onCancel, onCreated }: Props) {
                 </button>
               </div>
               <div className="mt-2 flex flex-wrap gap-1.5">
-                {game.teams.map((team) => (
-                  <button
-                    key={team.id}
-                    onClick={() => setRole(i, { team: team.id })}
-                    aria-pressed={role.team === team.id}
-                    className={[
-                      'rounded-lg border px-2.5 py-1 text-xs',
-                      role.team === team.id ? 'border-info bg-info/15 text-ink' : 'border-line bg-raised text-muted active:bg-line',
-                    ].join(' ')}
-                  >
-                    {team.name}
-                  </button>
-                ))}
+                {game.teams.map((team) => {
+                  const sel = role.team === team.id
+                  return (
+                    <button
+                      key={team.id}
+                      onClick={() => setRole(i, { team: team.id })}
+                      aria-pressed={sel}
+                      style={sel ? teamChipStyle(team.color) : undefined}
+                      className={[
+                        'flex items-center gap-1.5 rounded-lg border px-2.5 py-1 text-xs',
+                        sel ? '' : 'border-line bg-raised text-muted active:bg-line',
+                      ].join(' ')}
+                    >
+                      <span
+                        className="h-2 w-2 shrink-0 rounded-full"
+                        style={{ backgroundColor: resolveTeamColor(team.color) }}
+                      />
+                      {team.name}
+                    </button>
+                  )
+                })}
               </div>
             </li>
           ))}
