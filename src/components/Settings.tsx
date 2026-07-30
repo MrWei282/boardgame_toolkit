@@ -20,9 +20,12 @@ import {
 import { useSessions, useStore } from '../store'
 import { effectiveColor, PALETTES } from '../theme'
 import type { Tone } from '../types'
+import { GameEditor, type GameInitial } from './GameEditor'
 import { ScriptEditor } from './ScriptEditor'
 
-type EditorState = { kind: 'script'; gameId: string; initial?: { name: string; roles: { name: string; team: string }[] } }
+type EditorState =
+  | { kind: 'script'; gameId: string; initial?: { name: string; roles: { name: string; team: string }[] } }
+  | { kind: 'game'; initial?: GameInitial }
 
 const TONE_ORDER: Tone[] = ['good', 'evil', 'neutral', 'info']
 const BASE_TONES = new Set<string>(TONE_ORDER)
@@ -76,15 +79,19 @@ export function Settings({ onClose }: { onClose: () => void }) {
   // The create-only editor replaces the Settings screen while open; saving registers
   // a new config and returns here (bumped so the list re-reads).
   if (editor) {
+    const done = () => {
+      setEditor(null)
+      bump()
+    }
+    if (editor.kind === 'game') {
+      return <GameEditor initial={editor.initial} onCancel={() => setEditor(null)} onCreated={done} />
+    }
     return (
       <ScriptEditor
         gameId={editor.gameId}
         initial={editor.initial}
         onCancel={() => setEditor(null)}
-        onCreated={() => {
-          setEditor(null)
-          bump()
-        }}
+        onCreated={done}
       />
     )
   }
@@ -276,6 +283,26 @@ export function Settings({ onClose }: { onClose: () => void }) {
                       </div>
                     </div>
                     <button
+                      onClick={() =>
+                        setEditor({
+                          kind: 'game',
+                          initial: {
+                            name: g.name,
+                            minPlayers: g.minPlayers,
+                            maxPlayers: g.maxPlayers,
+                            teams: g.teams.map((tm) => ({ name: tm.name, alignment: tm.alignment, color: tm.color })),
+                            phases: {
+                              setup: (g.phases.setup ?? []).map((p) => ({ label: p.label, short: p.short })),
+                              cycle: g.phases.cycle.map((p) => ({ label: p.label, short: p.short })),
+                            },
+                          },
+                        })
+                      }
+                      className="shrink-0 rounded-lg border border-line px-2.5 py-1 text-xs text-muted active:bg-raised"
+                    >
+                      {t('common.duplicate')}
+                    </button>
+                    <button
                       onClick={() => downloadText(bundleFilename(g.name), serializeBundle(buildConfigBundle(g.id)))}
                       className="shrink-0 rounded-lg border border-line px-2.5 py-1 text-xs text-muted active:bg-raised"
                     >
@@ -362,11 +389,18 @@ export function Settings({ onClose }: { onClose: () => void }) {
         )}
 
         <button
+          onClick={() => setEditor({ kind: 'game' })}
+          className="mt-3 w-full rounded-xl border border-dashed border-line py-2.5 text-sm text-info active:bg-raised"
+        >
+          {t('settings.newGame')}
+        </button>
+
+        <button
           onClick={() => {
             restoreDefaultConfigs()
             bump()
           }}
-          className="mt-3 w-full rounded-xl border border-line bg-raised px-3 py-2.5 text-sm text-muted active:bg-line"
+          className="mt-2 w-full rounded-xl border border-line bg-raised px-3 py-2.5 text-sm text-muted active:bg-line"
         >
           {t('common.restoreDefaults')}
         </button>
