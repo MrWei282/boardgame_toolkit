@@ -75,14 +75,21 @@ export function storedScripts(): ScriptConfig[] {
   return blob.scripts
 }
 
-/** Upsert a game by id (a re-imported config replaces the older version). */
+/** Upsert a game by id (a re-imported config replaces the older version). An existing
+ *  id is replaced *in place* so editing a game doesn't reorder the list; a new id appends. */
 export function saveGame(game: GameConfig) {
-  blob = { ...blob, games: [...blob.games.filter((g) => g.id !== game.id), game] }
+  const games = blob.games.some((g) => g.id === game.id)
+    ? blob.games.map((g) => (g.id === game.id ? game : g))
+    : [...blob.games, game]
+  blob = { ...blob, games }
   write(blob)
 }
-/** Upsert a script by id. */
+/** Upsert a script by id (replace in place if present, else append). */
 export function saveScript(script: ScriptConfig) {
-  blob = { ...blob, scripts: [...blob.scripts.filter((s) => s.id !== script.id), script] }
+  const scripts = blob.scripts.some((s) => s.id === script.id)
+    ? blob.scripts.map((s) => (s.id === script.id ? script : s))
+    : [...blob.scripts, script]
+  blob = { ...blob, scripts }
   write(blob)
 }
 

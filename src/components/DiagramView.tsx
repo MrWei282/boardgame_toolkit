@@ -287,7 +287,7 @@ function RelationFilter({
     <div className="relative mb-1 flex justify-end">
       <button
         onClick={() => setOpen((v) => !v)}
-        aria-label="Filter arrows"
+        aria-label="Hide arrows"
         aria-expanded={open}
         className={[
           'flex items-center gap-1.5 rounded-lg border px-2.5 py-1 text-xs active:bg-raised',
@@ -297,7 +297,7 @@ function RelationFilter({
         <span aria-hidden className="text-sm leading-none">
           {hiddenCount > 0 ? '🚫' : '👁'}
         </span>
-        Arrows
+        Hide
         {hiddenCount > 0 && <span className="tabular-nums">−{hiddenCount}</span>}
       </button>
 
